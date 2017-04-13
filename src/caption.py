@@ -7,7 +7,9 @@ import helpers
 import json
 import tensorflow as tf
 import nltk
+from functools import partial
 from sklearn.feature_extraction.text import CountVectorizer
+from multiprocessing.dummy import Pool as ThreadPool
 
 
 class Caption:
@@ -17,9 +19,9 @@ class Caption:
         self.vectorizer = CountVectorizer()
 
         # Variables related to assisting in the generating guidance captions
+        self.gram_frequencies = {}
         self.annotations_data, self.images_data = self.get_annotations()
         self.captions = self.make_caption_representations()
-        self.gram_frequencies = self.make_gram_frequencies()
 
     '''
     ETL related functions
@@ -47,6 +49,24 @@ class Caption:
     def get_gram_representation(word_list, n=4):
         return list(nltk.everygrams(word_list, min_len=1, max_len=n))
 
+    def get_caption_representation(self, image_id, annotation):
+        if annotation['image_id'] == image_id:
+            caption = annotation['caption']
+            stemmed_caption = self.stem_sentence(caption)
+            gram_caption = self.get_gram_representation(stemmed_caption)
+
+            used = []
+            for gram in gram_caption:
+                if str(gram) in self.gram_frequencies:
+                    self.gram_frequencies[str(gram)]['count'] += 1
+                    if gram not in used:
+                        self.gram_frequencies[str(gram)]['image_count'] += 1
+                else:
+                    self.gram_frequencies[str(gram)] = {'count': 1, 'image_count': 1}
+                used.append(gram)
+
+            return gram_caption
+
     def make_caption_representations(self):
         representations = {}
         for image in self.images_data[:10]:
@@ -55,13 +75,10 @@ class Caption:
             image_id = image['id']
 
             # Iterature through the annotations data and find all captions belonging to our image
-            captions = []
-            for annotation in self.annotations_data:
-                if annotation['image_id'] == image_id:
-                    caption = annotation['caption']
-                    stemmed_caption = self.stem_sentence(caption)
-                    gram_caption = self.get_gram_representation(stemmed_caption)
-                    captions.append(gram_caption)
+            pool = ThreadPool(4)
+            get_caption_partial = partial(self.get_caption_representation, image_id)
+            captions = pool.map(get_caption_partial, self.annotations_data)
+
             representations[file_name] = captions
 
         return representations
@@ -106,22 +123,27 @@ class Caption:
     def get_cider_scores(self):
         pass
 
+    def get_doc_frequency(self, gram):
+        return self.gram_frequencies[str(gram)]['image_count']
+
     def get_similarity(self, caption, captions):
         pass
 
-    def get_doc_frequency(self, gram):
-        return self.gram_frequencies[str(gram)]
+    def get_term_frequency(self, gram):
+        return self.gram_frequencies[str(gram)]['count']
 
     @staticmethod
     def get_term_frequency(gram, reference_senence):
         return reference_senence.count(gram)
 
     def get_tfidf(self, gram, reference_sentence):
-        term_frequency = self.get_term_frequency(gram, reference_sentence)
-        doc_frequency = self.get_doc_frequency(gram)
+        term_frequency = self.get_term_reference_frequency(gram, reference_sentence)
+        doc_frequency = self.get_term_frequency(gram)
         frequency = term_frequency / doc_frequency
 
-        rarity = tf.log()
+        doc_size = len(self.images_data.keys())
+        reference_occurence = self.get_doc_frequency(gram)
+        rarity = tf.log(doc_size / reference_occurence)
 
         tfidf = frequency * rarity
         return tfidf
