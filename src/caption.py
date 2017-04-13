@@ -6,10 +6,13 @@
 import helpers
 import json
 import tensorflow as tf
+import math
 import nltk
 from functools import partial
 from sklearn.feature_extraction.text import CountVectorizer
-from multiprocessing.dummy import Pool as ThreadPool
+from multiprocessing.dummy import Pool as ThreadPool, Lock
+
+NUM_GRAMS = 4
 
 
 class Caption:
@@ -21,7 +24,10 @@ class Caption:
         # Variables related to assisting in the generating guidance captions
         self.gram_frequencies = {}
         self.annotations_data, self.images_data = self.get_annotations()
-        self.captions = self.make_caption_representations()
+        self.captions = {}
+
+        # ETL
+        self.make_caption_representations()
 
     '''
     ETL related functions
@@ -29,27 +35,46 @@ class Caption:
 
     @staticmethod
     def get_annotations(path=helpers.get_captions_path()):
+        """
+
+        :param path:
+        :return:
+        """
+
         with open(path) as data_file:
             data = json.load(data_file)
             return data['annotations'], data['images']
 
-    def get_consenses_score(self, caption, descriptions):
-        # Stem our sentences and get their n-gram representations
-        caption = self.get_gram_representation(caption)
-        descriptions = [self.get_gram_representation(c) for c in descriptions]
+    def get_consensus_score(self, caption, collection):
+        """
 
-        # Compute the consensus score by averaging similarity to all other captions
-        total_similarity = tf.reduce_sum(self.get_similarity(caption, descriptions))
-        size = len(descriptions) - 1
-        score = total_similarity / size
+        :param caption:
+        :param collection:
+        :return:
+        """
+
+        score = 0
+        for c in collection:
+            score += self.get_cider_scores(caption, [c])
+        score /= (len(collection) - 1)
 
         return score
 
     @staticmethod
-    def get_gram_representation(word_list, n=4):
+    def get_gram_representation(word_list, n=NUM_GRAMS):
         return list(nltk.everygrams(word_list, min_len=1, max_len=n))
 
-    def get_caption_representation(self, image_id, annotation):
+    def get_caption_representation(self, filename, image_id, lock, annotation):
+        """
+        Given a caption, this returns its apprioriate n-gram representation and updates the gram frequencies list
+
+        :param filename
+        :param image_id:
+        :param lock:
+        :param annotation:
+        :return: gram_caption
+        """
+
         if annotation['image_id'] == image_id:
             caption = annotation['caption']
             stemmed_caption = self.stem_sentence(caption)
@@ -58,32 +83,41 @@ class Caption:
             used = []
             for gram in gram_caption:
                 if str(gram) in self.gram_frequencies:
+                    lock.acquire()
                     self.gram_frequencies[str(gram)]['count'] += 1
                     if gram not in used:
                         self.gram_frequencies[str(gram)]['image_count'] += 1
                 else:
+                    lock.acquire()
                     self.gram_frequencies[str(gram)] = {'count': 1, 'image_count': 1}
-                used.append(gram)
 
-            return gram_caption
+                used.append(gram)
+                lock.release()
+
+            self.captions[filename] = gram_caption
 
     def make_caption_representations(self):
-        representations = {}
+        """
+        Creates the caption representation in the form of a list of ngrams and populates the term frequency record
+        """
+
         for image in self.images_data[:10]:
             # Reference values pertaining a particular image
-            file_name = image['file_name']
+            filename = image['file_name']
             image_id = image['id']
 
             # Iterature through the annotations data and find all captions belonging to our image
             pool = ThreadPool(4)
-            get_caption_partial = partial(self.get_caption_representation, image_id)
-            captions = pool.map(get_caption_partial, self.annotations_data)
-
-            representations[file_name] = captions
-
-        return representations
+            lock = Lock()
+            get_caption_partial = partial(self.get_caption_representation, filename, image_id, lock)
+            pool.map(get_caption_partial, self.annotations_data)
 
     def make_gram_frequencies(self):
+        """
+
+        :return: frequencies
+        """
+
         frequencies = {}
         for _, captions in self.captions.items():
             for caption in captions:
@@ -107,24 +141,40 @@ class Caption:
 
     @staticmethod
     def get_cosine_similarity(a, b):
-        return (a * b) / (tf.abs(a) * tf.abs(b))
+        return (a * b) / (math.abs(a) * math.abs(b))
 
-    def get_cider_score(self, candidate, description):
-        # Measure term values of candidate and description sentences using TF-IDF
-        tfidf_candidate = self.get_tfidf(candidate)
-        tfidf_description = self.get_tfidf(description)
+    def get_cider_score(self, candidate, descriptions):
+        num_descriptions = len(descriptions)
+        score = 0
 
-        # Compute the CIDEr score by getting the average of their cosine similarities
-        cosine_similarities = self.get_cosine_similarity(tfidf_candidate, tfidf_description)
-        score = tf.reduce_mean(cosine_similarities)
+        for description in descriptions:
+            # Measure term values of candidate and description sentences using TF-IDF
+            tfidf_candidate = self.get_tfidf(candidate)
+            tfidf_description = self.get_tfidf(description)
+
+            # Compute the CIDEr score by getting the average of their cosine similarities
+            cosine_similarities = tf.convert_to_tensor(self.get_cosine_similarity(tfidf_candidate, tfidf_description))
+            score += cosine_similarities
+
+        score /= num_descriptions
+        return score
+
+    def get_cider_scores(self, candidate, descriptions):
+        score = 0
+
+        for i in range(NUM_GRAMS):
+            candidate = self.get_grams_of_size(i, candidate)
+            descriptions = [self.get_grams_of_size(i, description) for description in descriptions]
+            score += self.get_cider_score(candidate, descriptions)
 
         return score
 
-    def get_cider_scores(self):
-        pass
-
     def get_doc_frequency(self, gram):
         return self.gram_frequencies[str(gram)]['image_count']
+
+    @staticmethod
+    def get_grams_of_size(n, representation):
+        return filter(representation, lambda x: len(x) == n)
 
     def get_similarity(self, caption, captions):
         pass
@@ -143,7 +193,7 @@ class Caption:
 
         doc_size = len(self.images_data.keys())
         reference_occurence = self.get_doc_frequency(gram)
-        rarity = tf.log(doc_size / reference_occurence)
+        rarity = math.log(doc_size / reference_occurence)
 
         tfidf = frequency * rarity
         return tfidf
