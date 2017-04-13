@@ -144,6 +144,13 @@ class Caption:
         return (a * b) / (math.abs(a) * math.abs(b))
 
     def get_cider_score(self, candidate, descriptions):
+        """
+
+        :param candidate:
+        :param descriptions:
+        :return:
+        """
+
         num_descriptions = len(descriptions)
         score = 0
 
@@ -160,6 +167,13 @@ class Caption:
         return score
 
     def get_cider_scores(self, candidate, descriptions):
+        """
+
+        :param candidate:
+        :param descriptions:
+        :return:
+        """
+
         score = 0
 
         for i in range(NUM_GRAMS):

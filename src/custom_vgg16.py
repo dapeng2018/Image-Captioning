@@ -12,7 +12,7 @@ import urllib.request
 VGG_MEAN = [103.939, 116.779, 123.68]
 data = None
 dir_path = os.path.dirname(os.path.realpath(__file__))
-weights_name = dir_path + "/../lib/descriptor/vgg16.npy"
+weights_name = dir_path + "/../lib/vgg16.npy"
 weights_url = "https://www.dropbox.com/s/gjtfdngpziph36c/vgg16.npy?dl=1"
 
 
