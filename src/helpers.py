@@ -18,7 +18,7 @@ def get_captions_path(train=True):
 
 
 def get_current_path():
-    return os.path.dirname(os.path.realpath(__file__))
+    return os.path.dirname(os.path.realpath(__file__)) + '/../'
 
 
 def get_lib_path():

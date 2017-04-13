@@ -6,7 +6,7 @@
 import tensorflow as tf
 
 
-class Encoder:
+class CaptionEncoder:
     def __init__(self):
         pass
 
