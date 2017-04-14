@@ -6,4 +6,6 @@
 import tensorflow as tf
 
 with tf.Session as sess:
-    pass
+    sess.run(tf.global_variables_initializer())
+
+exit(0)

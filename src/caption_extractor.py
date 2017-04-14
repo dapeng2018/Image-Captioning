@@ -15,8 +15,10 @@ from multiprocessing.dummy import Pool as ThreadPool, Lock
 NUM_GRAMS = 4
 
 
-class Caption:
+class CaptionExtractor:
     def __init__(self):
+        print("New 'CaptionExtractor' instance has been initialized.")
+
         # Variables for performing transformations
         self.stemmer = nltk.stem.WordNetLemmatizer()
         self.vectorizer = CountVectorizer()

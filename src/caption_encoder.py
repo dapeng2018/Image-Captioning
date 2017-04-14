@@ -9,7 +9,7 @@ import tensorflow as tf
 
 class CaptionEncoder:
     def __init__(self):
-        pass
+        print("New 'CaptionEncoder' instance has been initialized.")
 
     def build(self, input_placeholder, seq_len):
         sqrt3 = math.sqrt(3)
