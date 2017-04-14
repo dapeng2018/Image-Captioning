@@ -12,9 +12,9 @@ class Attention:
         print("New 'Attention' instance has been initialized.")
 
     def build(self, image_encoding, caption_encoding):
-        weights_image = tf.Variable(tf.random_uniform([100000, 300], -1.0, 1.0))
-        weights_caption = tf.Variable(tf.random_uniform([100000, 300], -1.0, 1.0))
-        weights_attention = tf.Variable(tf.random_uniform([100000, 300], -1.0, 1.0))
+        weights_image = tf.Variable(tf.random_uniform(image_encoding.get_shape(), -1., 1.))
+        weights_caption = tf.Variable(tf.random_uniform(tf.shape(caption_encoding), -1., 1.))
+        weights_attention = tf.Variable(tf.random_uniform([100000, 300], -1., 1.))
 
         weighted_image = tf.matmul(image_encoding, weights_image)
         weighted_caption = tf.matmul(caption_encoding, weights_caption)

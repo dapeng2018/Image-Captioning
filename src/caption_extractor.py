@@ -9,17 +9,20 @@ import tensorflow as tf
 import math
 import nltk
 from functools import partial
+from neighbor import Neighbor
 from sklearn.feature_extraction.text import CountVectorizer
 from multiprocessing.dummy import Pool as ThreadPool, Lock
 
 NUM_GRAMS = 4
+NUM_NEIGHBORS = 60
 
 
 class CaptionExtractor:
     def __init__(self):
         print("New 'CaptionExtractor' instance has been initialized.")
 
-        # Variables for performing transformations
+        # Variables for computing metrics and performing transformations
+        self.neighbor = Neighbor()
         self.stemmer = nltk.stem.WordNetLemmatizer()
         self.vectorizer = CountVectorizer()
 
@@ -30,6 +33,12 @@ class CaptionExtractor:
 
         # ETL
         self.make_caption_representations()
+
+    def build(self, input_placeholder):
+        nearest_neighbors = self.neighbor.nearest(input_placeholder)
+        candidate_captions = {k: self.captions[k] if k in self.captions else next for k in nearest_neighbors.keys()}
+        consensus_scores = tf.foldl(self.get_consensus_score())
+        self.consensus_caption = tf.argmax(consensus_scores)
 
     '''
     ETL related functions
@@ -103,7 +112,7 @@ class CaptionExtractor:
         Creates the caption representation in the form of a list of ngrams and populates the term frequency record
         """
 
-        for image in self.images_data[:10]:
+        for image in self.images_data[:1]:
             # Reference values pertaining a particular image
             filename = image['file_name']
             image_id = image['id']
@@ -141,10 +150,6 @@ class CaptionExtractor:
     Consensus-based Image Description Evaluation (CIDEr) related functions
     '''
 
-    @staticmethod
-    def get_cosine_similarity(a, b):
-        return (a * b) / (math.abs(a) * math.abs(b))
-
     def get_cider_score(self, candidate, descriptions):
         """
 
@@ -162,7 +167,7 @@ class CaptionExtractor:
             tfidf_description = self.get_tfidf(description)
 
             # Compute the CIDEr score by getting the average of their cosine similarities
-            cosine_similarities = tf.convert_to_tensor(self.get_cosine_similarity(tfidf_candidate, tfidf_description))
+            cosine_similarities = tf.convert_to_tensor(helpers.get_cosine_similarity(tfidf_candidate, tfidf_description))
             score += cosine_similarities
 
         score /= num_descriptions
@@ -203,6 +208,13 @@ class CaptionExtractor:
         return reference_senence.count(gram)
 
     def get_tfidf(self, gram, reference_sentence):
+        """
+
+        :param gram:
+        :param reference_sentence:
+        :return:
+        """
+
         term_frequency = self.get_term_reference_frequency(gram, reference_sentence)
         doc_frequency = self.get_term_frequency(gram)
         frequency = term_frequency / doc_frequency

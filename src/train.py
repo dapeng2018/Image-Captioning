@@ -10,49 +10,51 @@ import time
 from attention import Attention
 from caption_extractor import CaptionExtractor
 from caption_encoder import CaptionEncoder
-from custom_vgg16 import Vgg16
+from custom_vgg19 import Vgg19
 from decoder import Decoder
 
 BATCH_SIZE = 80
 LEARNING_RATE = .0004
-LEARNING_RATE_DEC = .8
+LEARNING_RATE_DEC_FACTOR = .8
 LEARNING_RATE_DEC_FREQ = 3
 LEARNING_RATE_DEC_THRESHOLD = 10
 PRINT_EVERY = 100
 TRAINING_ITERS = 100
-TRAIN_HEIGHT = 512
-TRAIN_WIDTH = 512
+TRAIN_HEIGHT = 224
+TRAIN_WIDTH = 224
 
 with tf.Session() as sess:
     image_shape = [1, TRAIN_HEIGHT, TRAIN_WIDTH, 3]
 
     # Initialize system instances
     extractor = CaptionExtractor()
-    vgg = Vgg16()
+    vgg = Vgg19()
     stv = CaptionEncoder()
     tatt = Attention()
     captioner = Decoder()
 
     # Initialize placeholders
     image_placeholder = tf.placeholder(dtype=tf.float32, shape=image_shape)
-    caption_placeholder = tf.placeholder(dtype=tf.int32, shape=[None, None])
+    guidance_caption_placeholder = tf.placeholder(dtype=tf.int32, shape=[None, None])
     seq_len_placeholder = tf.placeholder(dtype=tf.int32, shape=[None, ])
     learning_rate_placeholder = tf.placeholder(dtype=tf.float32, shape=[1])
 
     # Build encoder architectures
+    extractor.build(image_placeholder)
     vgg.build(image_placeholder, image_shape[1:])
-    stv.build(caption_placeholder, seq_len_placeholder)
+    #stv.build(guidance_caption_placeholder, seq_len_placeholder)
 
     #
     image_encoding = vgg.conv5_3
-    guidance_caption = stv.output
+    consensus_caption = extractor.conensus_caption
+    #guidance_caption = stv.output
 
     #
-    tatt.build(image_encoding, guidance_caption)
-    captioner.build()
+    #tatt.build(image_encoding, guidance_caption)
+    #captioner.build()
 
     #
-    output_caption = captioner.output
+    #output_caption = captioner.output
 
     loss = 0
 
@@ -74,15 +76,21 @@ with tf.Session() as sess:
 
     # Optimize
     for i in range(TRAINING_ITERS):
+        #guidance_caption
+
         # Initialize new feed dict for the training iteration and invoke the update op
-        feed_dict = {learning_rate_placeholder: LEARNING_RATE}
-        _, l = sess.run([update_step, loss], feed_dict=feed_dict)
+        feed_dict = {learning_rate_placeholder: LEARNING_RATE, image_placeholder: example.eval()}
+        #_, l = sess.run([update_step, loss], feed_dict=feed_dict)
+        sess.run(extractor.nearest_neighbors, feed_dict=feed_dict)
 
+        # Decrement the learning rate if the desired threshold has been surpassed
         if i > LEARNING_RATE_DEC_THRESHOLD and i % LEARNING_RATE_DEC_FREQ == 0:
-            LEARNING_RATE -= LEARNING_RATE_DEC
+            LEARNING_RATE /= LEARNING_RATE_DEC_FACTOR
 
+        # Log loss
         if i % PRINT_EVERY == 0:
-            logging.info("Epoch %06d | Loss %.06f" % (i, l))
+            #logging.info("Iteration %06d | Loss %.06f" % (i, l))
+            print(0)
 
     # Alert that training has been completed and print the run time
     elapsed = time.time() - start_time
@@ -92,7 +100,7 @@ with tf.Session() as sess:
 
     # Save the trained model and close the tensorflow session
     model_path = helpers.get_lib_path() + '/model_%s' % time.time()
-    helpers.save_model(saver, model_path)
+    #helpers.save_model(saver, model_path)
     sess.close()
 
 exit(0)
