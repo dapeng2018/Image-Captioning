@@ -9,10 +9,8 @@ import json
 import tensorflow as tf
 import math
 import nltk
-from functools import partial
 from neighbor import Neighbor
 from sklearn.feature_extraction.text import CountVectorizer
-from multiprocessing import Pool, Manager
 
 NUM_GRAMS = 4
 NUM_NEIGHBORS = 60
@@ -41,7 +39,6 @@ class CaptionExtractor:
             helpers.save_obj(self.captions, 'captions')
 
     def build(self, input_placeholder):
-        print("CaptionExtractor:build")
         nearest_neighbors = self.neighbor.nearest(input_placeholder)
         candidate_dict = {k: self.captions[k] for k in nearest_neighbors.keys()}
 
@@ -49,7 +46,7 @@ class CaptionExtractor:
         for k, v in candidate_dict.items():
             for c in v:
                 candidate_captions.append(c)
-        candidate_key_permutations = itertools.permutations(candidate_dict.keys())
+        candidate_key_permutations = list(itertools.permutations(candidate_dict.keys()))
 
         consensus_scores = tf.map_fn(self.get_consensus_score, candidate_key_permutations)
         self.consensus_caption = tf.argmax(consensus_scores)

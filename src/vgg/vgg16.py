@@ -1,48 +1,38 @@
+"""
+    Author: Chris (https://github.com/machrisaa), modified by Mohamed K. Eid (mohamedkeid@gmail.com)
+    Description: tensorflow implemention of VGG 16 and VGG 19 based on tensorflow-vgg16
+"""
+
 import os
 import tensorflow as tf
 import numpy as np
 import inspect
-import urllib.request
 
 VGG_MEAN = [103.939, 116.779, 123.68]
 data = None
 dir_path = os.path.dirname(os.path.realpath(__file__))
-weights_name = dir_path + "/../lib/vgg19.npy"
-weights_url = "https://www.dropbox.com/s/68opci8420g7bcl/vgg19.npy?dl=1"
+weights_name = dir_path + "/../../lib/vgg16.npy"
 
 
-class Vgg19:
-    def __init__(self, vgg19_npy_path=None):
+class Vgg16:
+    def __init__(self, vgg16_npy_path=None):
         global data
 
-        if vgg19_npy_path is None:
-            path = inspect.getfile(Vgg19)
+        if vgg16_npy_path is None:
+            path = inspect.getfile(Vgg16)
             path = os.path.abspath(os.path.join(path, os.pardir))
             path = os.path.join(path, weights_name)
 
             if os.path.exists(path):
-                vgg19_npy_path = path
+                vgg16_npy_path = path
             else:
-                print("VGG19 weights were not found in the project directory")
-
-                answer = 0
-                while answer is not 'y' and answer is not 'N':
-                    answer = input("Would you like to download the 548 MB file? [y/N] ").replace(" ", "")
-
-                # Download weights if yes, else exit the program
-                if answer == 'y':
-                    print("Downloading. Please be patient...")
-                    urllib.request.urlretrieve(weights_url, weights_name)
-                    vgg19_npy_path = path
-                elif answer == 'N':
-                    print("Exiting the program..")
-                    exit(0)
+                print("VGG16 weights were not found in the project directory")
+                exit(1)
 
         if data is None:
-            data = np.load(vgg19_npy_path, encoding='latin1')
+            data = np.load(vgg16_npy_path, encoding='latin1')
             self.data_dict = data.item()
-            print("VGG19 weights loaded")
-
+            print("VGG net weights loaded")
         else:
             self.data_dict = data.item()
 
@@ -79,20 +69,17 @@ class Vgg19:
         self.conv3_1 = self.conv_layer(self.pool2, "conv3_1")
         self.conv3_2 = self.conv_layer(self.conv3_1, "conv3_2")
         self.conv3_3 = self.conv_layer(self.conv3_2, "conv3_3")
-        self.conv3_4 = self.conv_layer(self.conv3_3, "conv3_4")
-        self.pool3 = self.avg_pool(self.conv3_4, 'pool3')
+        self.pool3 = self.avg_pool(self.conv3_3, 'pool3')
 
         self.conv4_1 = self.conv_layer(self.pool3, "conv4_1")
         self.conv4_2 = self.conv_layer(self.conv4_1, "conv4_2")
         self.conv4_3 = self.conv_layer(self.conv4_2, "conv4_3")
-        self.conv4_4 = self.conv_layer(self.conv4_3, "conv4_4")
-        self.pool4 = self.avg_pool(self.conv4_4, 'pool4')
+        self.pool4 = self.avg_pool(self.conv4_3, 'pool4')
 
         self.conv5_1 = self.conv_layer(self.pool4, "conv5_1")
         self.conv5_2 = self.conv_layer(self.conv5_1, "conv5_2")
         self.conv5_3 = self.conv_layer(self.conv5_2, "conv5_3")
-        self.conv5_4 = self.conv_layer(self.conv5_3, "conv5_4")
-        self.pool5 = self.avg_pool(self.conv5_4, 'pool5')
+        self.pool5 = self.max_pool(self.conv5_3, 'pool5')
 
         self.fc6 = self.fc_layer(self.pool5, "fc6")
         assert self.fc6.get_shape().as_list()[1:] == [4096]
@@ -102,6 +89,8 @@ class Vgg19:
         self.relu7 = tf.nn.relu(self.fc7)
 
         self.fc8 = self.fc_layer(self.relu7, "fc8")
+
+        self.prob = tf.nn.softmax(self.fc8, name="prob")
 
         self.data_dict = None
 
@@ -133,9 +122,6 @@ class Vgg19:
 
             weights = self.get_fc_weight(name)
             biases = self.get_bias(name)
-
-            # Fully connected layer. Note that the '+' operation automatically
-            # broadcasts the biases.
             fc = tf.nn.bias_add(tf.matmul(x, weights), biases)
 
             return fc

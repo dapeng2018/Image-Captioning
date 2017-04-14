@@ -8,8 +8,7 @@ import numpy as np
 import operator
 import os
 import tensorflow as tf
-from custom_vgg19 import Vgg19
-from functools import partial
+from vgg.fcn16_vgg import FCN16VGG as Vgg16
 
 HEIGHT = 224
 WIDTH = 224
@@ -33,12 +32,12 @@ class Neighbor:
 
         image = tf.image.resize_area(image, [HEIGHT, WIDTH])
         image_shape = [1, HEIGHT, WIDTH, 3]
-        image_vgg = Vgg19()
+        image_vgg = Vgg16()
         image_vgg.build(image, image_shape[1:])
-        image_encoding = image_vgg.fc8
+        image_encoding = image_vgg.fc7
 
         neighbor_img_placeholder = tf.placeholder(dtype=tf.float32, shape=image_shape)
-        neighbor_vgg = Vgg19()
+        neighbor_vgg = Vgg16()
         neighbor_vgg.build(neighbor_img_placeholder, image_shape[1:])
         neighbor_encoding = neighbor_vgg.fc8
 

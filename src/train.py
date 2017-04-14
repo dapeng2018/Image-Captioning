@@ -11,7 +11,7 @@ from attention import Attention
 from caption_extractor import CaptionExtractor
 from stv.encoder_manager import EncoderManager
 import stv.configuration as stv_configuration
-from custom_vgg19 import Vgg19
+from vgg.fcn16_vgg import FCN16VGG as Vgg16
 from decoder import Decoder
 
 FLAGS = tf.flags.FLAGS
@@ -22,9 +22,10 @@ tf.flags.DEFINE_float('learning_rate_dec_factor', .8, 'Factor in which the learn
 tf.flags.DEFINE_integer('learning_rate_dec_freq', 3, 'How often (iterations) the learning rate decreases')
 tf.flags.DEFINE_integer('learning_rate_dec_thresh', 10, 'Number of iterations before learning rate starts decreasing')
 tf.flags.DEFINE_integer('print_every', 100, 'How often (iterations) to log the current progress of training')
+tf.flags.DEFINE_integer('save_every', 1000, 'How often (iterations) to save the current state of the model')
 tf.flags.DEFINE_integer('training_iters', 100, 'Number of training iterations')
-tf.flags.DEFINE_integer('train_height', 224, 'Height in which training images are to be scaled to')
-tf.flags.DEFINE_integer('train_width', 224, 'Width in which training images are to be scaled to')
+tf.flags.DEFINE_integer('train_height', 512, 'Height in which training images are to be scaled to')
+tf.flags.DEFINE_integer('train_width', 512, 'Width in which training images are to be scaled to')
 
 stv_lib = helpers.get_lib_path() + '/stv/'
 tf.flags.DEFINE_string('stv_vocab_file', stv_lib + 'vocab.txt', 'Path to vocab file containing a list of words for STV')
@@ -36,7 +37,7 @@ with tf.Session() as sess:
 
     # Initialize system instances
     extractor = CaptionExtractor()
-    vgg = Vgg19()
+    vgg = Vgg16()
     stv = EncoderManager()
     tatt = Attention()
     captioner = Decoder()
@@ -68,7 +69,7 @@ with tf.Session() as sess:
     # Optimization ops
     with tf.name_scope('optimization'):
         optimizer = tf.train.AdamOptimizer(learning_rate_placeholder)
-        trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="generator")
+        trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
         grads = optimizer.compute_gradients(loss, trainable_vars)
         update_step = optimizer.apply_gradients(grads)
 
