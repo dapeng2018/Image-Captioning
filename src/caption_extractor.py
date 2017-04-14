@@ -4,6 +4,7 @@
 """
 
 import helpers
+import itertools
 import json
 import tensorflow as tf
 import math
@@ -11,7 +12,7 @@ import nltk
 from functools import partial
 from neighbor import Neighbor
 from sklearn.feature_extraction.text import CountVectorizer
-from multiprocessing.dummy import Pool as ThreadPool, Lock
+from multiprocessing import Pool, Manager
 
 NUM_GRAMS = 4
 NUM_NEIGHBORS = 60
@@ -27,17 +28,30 @@ class CaptionExtractor:
         self.vectorizer = CountVectorizer()
 
         # Variables related to assisting in the generating guidance captions
-        self.gram_frequencies = {}
-        self.annotations_data, self.images_data = self.get_annotations()
-        self.captions = {}
+        self.gram_frequencies = helpers.get_data('gram_frequencies')
+        self.captions = helpers.get_data('captions')
 
         # ETL
-        self.make_caption_representations()
+        if len(self.gram_frequencies.keys()) == 0 or len(self.captions.keys()) == 0:
+            self.annotations_data, self.images_data = self.get_annotations()
+            self.make_caption_representations()
+
+            # Save the dictionaries for future use
+            helpers.save_obj(self.gram_frequencies, 'gram_frequencies')
+            helpers.save_obj(self.captions, 'captions')
 
     def build(self, input_placeholder):
+        print("CaptionExtractor:build")
         nearest_neighbors = self.neighbor.nearest(input_placeholder)
-        candidate_captions = {k: self.captions[k] if k in self.captions else next for k in nearest_neighbors.keys()}
-        consensus_scores = tf.foldl(self.get_consensus_score())
+        candidate_dict = {k: self.captions[k] for k in nearest_neighbors.keys()}
+
+        candidate_captions = []
+        for k, v in candidate_dict.items():
+            for c in v:
+                candidate_captions.append(c)
+        candidate_key_permutations = itertools.permutations(candidate_dict.keys())
+
+        consensus_scores = tf.map_fn(self.get_consensus_score, candidate_key_permutations)
         self.consensus_caption = tf.argmax(consensus_scores)
 
     '''
@@ -75,7 +89,7 @@ class CaptionExtractor:
     def get_gram_representation(word_list, n=NUM_GRAMS):
         return list(nltk.everygrams(word_list, min_len=1, max_len=n))
 
-    def get_caption_representation(self, filename, image_id, lock, annotation):
+    def make_caption_representation(self, filename, image_id, annotation):
         """
         Given a caption, this returns its apprioriate n-gram representation and updates the gram frequencies list
 
@@ -87,58 +101,33 @@ class CaptionExtractor:
         """
 
         if annotation['image_id'] == image_id:
+            if filename not in self.captions:
+                self.captions[filename] = {}
+
             caption = annotation['caption']
             stemmed_caption = self.stem_sentence(caption)
-            gram_caption = self.get_gram_representation(stemmed_caption)
+            self.captions[filename][caption] = self.get_gram_representation(stemmed_caption)
 
             used = []
-            for gram in gram_caption:
+            for gram in self.captions[filename][caption]:
                 if str(gram) in self.gram_frequencies:
-                    lock.acquire()
                     self.gram_frequencies[str(gram)]['count'] += 1
                     if gram not in used:
                         self.gram_frequencies[str(gram)]['image_count'] += 1
+                        used.append(gram)
                 else:
-                    lock.acquire()
                     self.gram_frequencies[str(gram)] = {'count': 1, 'image_count': 1}
-
-                used.append(gram)
-                lock.release()
-
-            self.captions[filename] = gram_caption
+                    used.append(gram)
 
     def make_caption_representations(self):
         """
         Creates the caption representation in the form of a list of ngrams and populates the term frequency record
         """
 
+        # Iterature through the annotations data and find all captions belonging to our image
         for image in self.images_data[:1]:
-            # Reference values pertaining a particular image
-            filename = image['file_name']
-            image_id = image['id']
-
-            # Iterature through the annotations data and find all captions belonging to our image
-            pool = ThreadPool(4)
-            lock = Lock()
-            get_caption_partial = partial(self.get_caption_representation, filename, image_id, lock)
-            pool.map(get_caption_partial, self.annotations_data)
-
-    def make_gram_frequencies(self):
-        """
-
-        :return: frequencies
-        """
-
-        frequencies = {}
-        for _, captions in self.captions.items():
-            for caption in captions:
-                for gram in caption:
-                    g = str(gram)
-                    if g in frequencies:
-                        frequencies[g] += 1
-                    else:
-                        frequencies[g] = 1
-        return frequencies
+            for annotation in self.annotations_data:
+                self.make_caption_representation(image['file_name'], image['id'], annotation)
 
     def stem_sentence(self, sentence):
         return [self.stem_word(word) for word in nltk.word_tokenize(sentence)]

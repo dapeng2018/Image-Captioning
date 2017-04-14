@@ -1,2 +1,9 @@
-lib/*
 .idea/*
+.DS_Store
+*.npy
+*.jpg
+*.zip
+*.json
+*.pkl
+
+model.ckpt-501424.data-00000-of-00001

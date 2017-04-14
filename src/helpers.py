@@ -6,6 +6,7 @@
 import logging
 import numpy as np
 import os
+import pickle
 import tensorflow as tf
 import skimage
 import skimage.io
@@ -37,6 +38,13 @@ def get_current_path():
     return os.path.dirname(os.path.realpath(__file__)) + '/../'
 
 
+def get_data(name):
+    if pickle_exists(name):
+        return load_obj(name)
+    else:
+        return {}
+
+
 def get_lib_path():
     return get_current_path() + '/lib/'
 
@@ -52,13 +60,17 @@ def get_training_path():
 
 
 def get_training_size():
-    return len([name for name in os.listdir(get_training_path()) if os.path.isfile(name)])
+    path = get_training_path()
+    return len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
 
 
 def get_training_next_path():
     for root, dirs, files in os.walk(get_training_path()):
         for name in files:
-            return os.path.join(root, name)
+            if ".jpg" in name:
+                return os.path.join(root, name)
+            else:
+                return get_training_next_path()
 
 
 # Return a resized numpy array of an image specified by its path
@@ -94,7 +106,22 @@ def next_example(height, width):
     return img, 0
 
 
+def pickle_exists(name):
+    return os.path.exists(get_lib_path() + name + '.pkl')
+
+
 def save_model(session, saver, path):
     logging.info("Proceeding to save weights at '%s'" % path)
     saver.save(session, path)
     logging.info("Weights have been saved.")
+
+
+def save_obj(obj, name):
+    with open(get_lib_path() + name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f, pickle.HIGHEST_PROTOCOL)
+
+
+def load_obj(name):
+    with open(get_lib_path() + name + '.pkl', 'rb') as f:
+        x = pickle.load(f)
+        return x

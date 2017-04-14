@@ -18,7 +18,7 @@ TRAINING_SIZE = helpers.get_training_size()
 
 class Neighbor:
     def __init__(self):
-        print("New 'Neighbor' instance has be initialized")
+        print("New 'Neighbor' instance has be initialized.")
 
     @staticmethod
     def nearest(image, k=60):
@@ -42,7 +42,7 @@ class Neighbor:
         neighbor_vgg.build(neighbor_img_placeholder, image_shape[1:])
         neighbor_encoding = neighbor_vgg.fc8
 
-        for i in range(3):#range(helpers.get_training_size()):
+        for i in range(helpers.get_training_size()):
             neighbor_path = helpers.get_training_next_path()
             neighbor_filename = os.path.basename(neighbor_path)
             neighbor_image = helpers.load_image2(neighbor_path, HEIGHT, WIDTH)

@@ -35,8 +35,8 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-import gru_cell
-import input_ops
+import stv.gru_cell as gru_cell
+import stv.input_ops as input_ops
 
 
 def random_orthonormal_initializer(shape, dtype=tf.float32,
