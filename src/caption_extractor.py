@@ -122,7 +122,7 @@ class CaptionExtractor:
         """
 
         # Iterature through the annotations data and find all captions belonging to our image
-        for image in self.images_data[:1]:
+        for image in self.images_data:
             for annotation in self.annotations_data:
                 self.make_caption_representation(image['file_name'], image['id'], annotation)
 

@@ -55,10 +55,7 @@ with tf.Session() as sess:
     # Build encoder architectures
     vgg.build(image_placeholder, image_shape[1:])
     extractor.build(image_name_placeholder)
-    stv.build(extractor.conensus_caption, seq_len_placeholder)
-
-    # VGG image encoding
-    image_encoding = vgg.conv5_3
+    image_encoding = stv.encode(extractor.conensus_caption)
 
     # Attention model and decoder
     tatt.build(image_encoding, extractor.conensus_caption)
