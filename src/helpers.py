@@ -3,9 +3,9 @@
     Description:
 """
 
-import json
 import logging
 import numpy as np
+import pickle
 import os
 import tensorflow as tf
 import skimage
@@ -38,7 +38,7 @@ def get_current_path():
 
 
 def get_data(name):
-    if json_exists(name):
+    if pickle_exists(name):
         return load_obj(name)
     else:
         return {}
@@ -122,8 +122,8 @@ def next_example(height, width):
     return img, filename
 
 
-def json_exists(name):
-    return os.path.exists(get_lib_path() + name + '.json')
+def pickle_exists(name):
+    return os.path.exists(get_lib_path() + name + '.pkl')
 
 
 def save_model(session, saver, path):
@@ -133,27 +133,44 @@ def save_model(session, saver, path):
 
 
 def save_obj(obj, name):
-    with open(get_lib_path() + name + '.json', 'w') as f:
-        json.dump(obj, f)
+    with open(get_lib_path() + name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f)
 
 
 def load_obj(name):
-    with open(get_lib_path() + name + '.json', 'r') as f:
-        x = json.load(f)
+    with open(get_lib_path() + name + '.pkl', 'rb') as f:
+        x = pickle.load(f)
         return x
 
 
-def make_training_fc7_file():
-    # Append a dictionary object {filename: encoding} to the list contained in the json file
-    def append_fc7_encoding(x, p):
-        with open(p, 'w') as out:
-            json.dump(x, out)
+def get_fc7_filenames():
+    image_filename = 'fc7_filenames.pkl'
+    image_path = get_lib_path() + image_filename
+    filenames = np.load(image_path)
+    return filenames
 
-    # Initialize the empty json file
-    filename = 'fc7_encoding.json'
-    path = get_lib_path() + filename
-    with open(path, mode='w', encoding='utf-8') as f:
-        json.dump([], f)
+
+def get_fc7_encodings():
+    encoding_filename = 'fc7_encodings.pkl'
+    encoding_path = get_lib_path() + encoding_filename
+    encodings = np.load(encoding_path)
+
+    return encodings
+
+
+def make_training_fc7_file():
+    save_obj([], 'fc7_filenames')
+    save_obj([], 'fc7_encodings')
+
+    # Append a dictionary object {filename: encoding} to the list contained in the pickle file
+    def append_fc7_encoding(f, e):
+        filenames = get_fc7_filenames()
+        filenames.append(f)
+        save_obj(filenames, 'fc7_filenames')
+
+        encodings = get_fc7_encodings()
+        encodings.append(e)
+        save_obj(encodings, 'fc7_encodings')
 
     # Create a tf session to evaluate encodings for training images resized to the given shape
     shape = [1, 224, 224, 3]
@@ -166,10 +183,13 @@ def make_training_fc7_file():
 
         sess.run(tf.global_variables_initializer())
 
-        # Iterate through the training set, evaluate the encodings, and append to the json file
-        for _ in range(get_training_size()):
+        # Iterate through the training set, evaluate the encodings, and append to the pickle file
+        for i in range(get_training_size()):
+            if i % 100 == 0:
+                print(i)
             filename = get_training_next_path()
             img = load_image_to(filename, shape[1], shape[2])
             img = img.reshape(shape).astype(np.float32)
             encoding = sess.run(layer, feed_dict={image_placeholder: img})
-            append_fc7_encoding({filename: encoding}, path)
+            append_fc7_encoding(filename, encoding)
+

@@ -9,16 +9,19 @@ import json
 import tensorflow as tf
 import math
 import nltk
+import random
 from neighbor import Neighbor
 from sklearn.feature_extraction.text import CountVectorizer
 
+FLAGS = tf.flags.FLAGS
 NUM_GRAMS = 4
 NUM_NEIGHBORS = 60
 
 
 class CaptionExtractor:
-    def __init__(self):
+    def __init__(self, is_training=True):
         print("New 'CaptionExtractor' instance has been initialized.")
+        self.is_training = is_training
 
         # Variables for computing metrics and performing transformations
         self.neighbor = Neighbor()
@@ -38,18 +41,14 @@ class CaptionExtractor:
             helpers.save_obj(self.gram_frequencies, 'gram_frequencies')
             helpers.save_obj(self.captions, 'captions')
 
-    def build(self, input_name_placeholder):
-        # Get the nearest neighbors visually of the input
-        nearest_neighbors = self.neighbor.nearest(input_name_placeholder)
-
-        # Get all the captions of all the images and create a list of combinations
-        candidate_captions = [self.captions[filename] for filename in nearest_neighbors]
-        candidate_captions = list(itertools.chain(*candidate_captions))
-        caption_combos = itertools.combinations(candidate_captions, 2)
-
-        # Compute the consensus score and find the highest scoring caption
-        consensus_scores = tf.map_fn(self.get_consensus_score, caption_combos)
-        self.consensus_caption = tf.argmax(consensus_scores)
+    def build(self, candidate_captions):
+        if self.is_training:
+            self.guidance_caption = candidate_captions[random.randint(0, FLAGS.k)]
+        else:
+            # Compute the consensus score and find the highest scoring caption
+            caption_combos = itertools.combinations(candidate_captions, 2)
+            consensus_scores = tf.map_fn(self.get_consensus_score, caption_combos)
+            self.guidance_caption = tf.argmax(consensus_scores)
 
     '''
     ETL related functions

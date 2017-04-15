@@ -114,15 +114,8 @@ class EncoderManager(object):
 
     encoded = []
     for encoder, sess in zip(self.encoders, self.sessions):
-      encoded.append(
-          np.array(
-              encoder.encode(
-                  sess,
-                  data,
-                  use_norm=use_norm,
-                  verbose=verbose,
-                  batch_size=batch_size,
-                  use_eos=use_eos)))
+      encoding = encoder.encode(sess, data, use_norm=use_norm, verbose=verbose, batch_size=batch_size, use_eos=use_eos)
+      encoded.append(np.array(encoding))
 
     return np.concatenate(encoded, axis=1)
 
