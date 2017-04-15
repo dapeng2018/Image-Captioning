@@ -73,8 +73,25 @@ def get_training_next_path():
                 return get_training_next_path()
 
 
+# Returns a numpy array of an image specified by its path
+def load_img(path):
+    # Load image [height, width, depth]
+    img = skimage.io.imread(path) / 255.0
+    assert (0 <= img).all() and (img <= 1.0).all()
+
+    # Crop image from center
+    short_edge = min(img.shape[:2])
+    yy = int((img.shape[0] - short_edge) / 2)
+    xx = int((img.shape[1] - short_edge) / 2)
+    shape = list(img.shape)
+
+    crop_img = img[yy: yy + short_edge, xx: xx + short_edge]
+    resized_img = skimage.transform.resize(crop_img, (shape[0], shape[1]))
+    return resized_img, shape
+
+
 # Return a resized numpy array of an image specified by its path
-def load_image2(path, height=None, width=None):
+def load_image_to(path, height=None, width=None):
     # Load image
     img = skimage.io.imread(path) / 255.0
     if height is not None and width is not None:
@@ -98,12 +115,12 @@ def next_example(height, width):
     filenames = tf.train.match_filenames_once(regex)
     filename_queue = tf.train.string_input_producer(filenames)
     reader = tf.WholeFileReader()
-    _, file = reader.read(filename_queue)
+    filename, file = reader.read(filename_queue)
 
     img = tf.image.decode_jpeg(file, channels=3)
     img = tf.image.resize_images(img, [height, width])
 
-    return img, 0
+    return img, filename
 
 
 def pickle_exists(name):

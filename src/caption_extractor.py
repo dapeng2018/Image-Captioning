@@ -38,17 +38,17 @@ class CaptionExtractor:
             helpers.save_obj(self.gram_frequencies, 'gram_frequencies')
             helpers.save_obj(self.captions, 'captions')
 
-    def build(self, input_placeholder):
-        nearest_neighbors = self.neighbor.nearest(input_placeholder)
-        candidate_dict = {k: self.captions[k] for k in nearest_neighbors.keys()}
+    def build(self, input_name_placeholder):
+        # Get the nearest neighbors visually of the input
+        nearest_neighbors = self.neighbor.nearest(input_name_placeholder)
 
-        candidate_captions = []
-        for k, v in candidate_dict.items():
-            for c in v:
-                candidate_captions.append(c)
-        candidate_key_permutations = list(itertools.permutations(candidate_dict.keys()))
+        # Get all the captions of all the images and create a list of combinations
+        candidate_captions = [self.captions[filename] for filename in nearest_neighbors]
+        candidate_captions = list(itertools.chain(*candidate_captions))
+        caption_combos = itertools.combinations(candidate_captions, 2)
 
-        consensus_scores = tf.map_fn(self.get_consensus_score, candidate_key_permutations)
+        # Compute the consensus score and find the highest scoring caption
+        consensus_scores = tf.map_fn(self.get_consensus_score, caption_combos)
         self.consensus_caption = tf.argmax(consensus_scores)
 
     '''

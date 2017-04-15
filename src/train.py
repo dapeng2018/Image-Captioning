@@ -47,13 +47,14 @@ with tf.Session() as sess:
     stv.load_model(stv_uni_config, FLAGS.stv_vocab_file, FLAGS.stv_embeddings_file, FLAGS.stv_checkpoint_path)
 
     # Initialize placeholders
-    image_placeholder = tf.placeholder(dtype=tf.float32, shape=image_shape)
+    image_placeholder = tf.placeholder(dtype=tf.float32, shape=[None, None, None, 3])
+    image_name_placeholder = tf.placeholder(dtype=tf.string)
     seq_len_placeholder = tf.placeholder(dtype=tf.int32, shape=[None, ])
     learning_rate_placeholder = tf.placeholder(dtype=tf.float32, shape=[1])
 
     # Build encoder architectures
-    extractor.build(image_placeholder)
     vgg.build(image_placeholder, image_shape[1:])
+    extractor.build(image_name_placeholder)
     stv.build(extractor.conensus_caption, seq_len_placeholder)
 
     # VGG image encoding
