@@ -8,10 +8,21 @@ import numpy as np
 import pickle
 import os
 import tensorflow as tf
+import time
 import skimage
 import skimage.io
 import skimage.transform
 from vgg.fcn16_vgg import FCN16VGG as Vgg16
+
+
+def config_logging(env='training'):
+    log_dir = get_logs_path()
+    if not os.path.isdir(log_dir):
+        os.makedirs(log_dir)
+        print('Directory "%s" was created for logging.' % log_dir)
+    log_path = ''.join([log_dir, env, str(time.time()), '.log'])
+    logging.basicConfig(filename=log_path, level=logging.INFO)
+    print("Printing log to %s" % log_path)
 
 
 def get_annotations_path():
@@ -44,14 +55,33 @@ def get_data(name):
         return {}
 
 
-def get_lib_path():
-    return get_current_path() + '/lib/'
+def get_fc7_encodings():
+    encoding_filename = 'fc7_encodings.pkl'
+    encoding_path = get_lib_path() + encoding_filename
+    encodings = np.load(encoding_path)
+
+    return encodings
+
+
+def get_fc7_filenames():
+    image_filename = 'fc7_filenames.pkl'
+    image_path = get_lib_path() + image_filename
+    filenames = np.load(image_path)
+    return filenames
 
 
 def get_l2_norm(t):
     t = tf.squeeze(t)
     norm = tf.sqrt(tf.reduce_sum(tf.square(t)))
     return norm
+
+
+def get_lib_path():
+    return get_current_path() + '/lib/'
+
+
+def get_logs_path():
+    return get_current_path() + '/log/'
 
 
 def get_training_path():
@@ -122,41 +152,10 @@ def next_example(height, width):
     return img, filename
 
 
-def pickle_exists(name):
-    return os.path.exists(get_lib_path() + name + '.pkl')
-
-
-def save_model(session, saver, path):
-    logging.info("Proceeding to save weights at '%s'" % path)
-    saver.save(session, path)
-    logging.info("Weights have been saved.")
-
-
-def save_obj(obj, name):
-    with open(get_lib_path() + name + '.pkl', 'wb') as f:
-        pickle.dump(obj, f)
-
-
 def load_obj(name):
     with open(get_lib_path() + name + '.pkl', 'rb') as f:
         x = pickle.load(f)
         return x
-
-
-def get_fc7_filenames():
-    image_filename = 'fc7_filenames.pkl'
-    image_path = get_lib_path() + image_filename
-    filenames = np.load(image_path)
-    return filenames
-
-
-def get_fc7_encodings():
-    encoding_filename = 'fc7_encodings.pkl'
-    encoding_path = get_lib_path() + encoding_filename
-    encodings = np.load(encoding_path)
-
-    return encodings
-
 
 def make_training_fc7_file():
     save_obj([], 'fc7_filenames')
@@ -192,4 +191,20 @@ def make_training_fc7_file():
             img = img.reshape(shape).astype(np.float32)
             encoding = sess.run(layer, feed_dict={image_placeholder: img})
             append_fc7_encoding(filename, encoding)
+
+
+def pickle_exists(name):
+    return os.path.exists(get_lib_path() + name + '.pkl')
+
+
+# Saves the model weights
+def save_model(session, saver, path):
+    logging.info("Proceeding to save weights at '%s'" % path)
+    saver.save(session, path)
+    logging.info("Weights have been saved.")
+
+
+def save_obj(obj, name):
+    with open(get_lib_path() + name + '.pkl', 'wb') as f:
+        pickle.dump(obj, f)
 

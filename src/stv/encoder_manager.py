@@ -91,7 +91,7 @@ class EncoderManager(object):
              data,
              use_norm=True,
              verbose=False,
-             batch_size=128,
+             batch_size=80,
              use_eos=False):
     """Encodes a sequence of sentences as skip-thought vectors.
 

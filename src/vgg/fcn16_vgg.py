@@ -82,21 +82,19 @@ class FCN16VGG:
 
         self.conv5_1 = self._conv_layer(self.pool4, "conv5_1")
         self.conv5_2 = self._conv_layer(self.conv5_1, "conv5_2")
-
         self.conv5_3 = self._conv_layer(self.conv5_2, "conv5_3")
         self.pool5 = self._max_pool(self.conv5_3, 'pool5', debug)
 
         self.fc6 = self._fc_layer(self.pool5, "fc6")
         self.fc7 = self._fc_layer(self.fc6, "fc7")
 
+        self.data_dict = None
+
     def _max_pool(self, bottom, name, debug):
-        pool = tf.nn.max_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1],
-                              padding='SAME', name=name)
+        pool = tf.nn.max_pool(bottom, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME', name=name)
 
         if debug:
-            pool = tf.Print(pool, [tf.shape(pool)],
-                            message='Shape of %s' % name,
-                            summarize=4, first_n=1)
+            pool = tf.Print(pool, [tf.shape(pool)], message='Shape of %s' % name, summarize=4, first_n=1)
         return pool
 
     def _conv_layer(self, bottom, name):

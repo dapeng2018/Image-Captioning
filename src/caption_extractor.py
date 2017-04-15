@@ -19,9 +19,8 @@ NUM_NEIGHBORS = 60
 
 
 class CaptionExtractor:
-    def __init__(self, is_training=True):
+    def __init__(self):
         print("New 'CaptionExtractor' instance has been initialized.")
-        self.is_training = is_training
 
         # Variables for computing metrics and performing transformations
         self.neighbor = Neighbor()
@@ -42,17 +41,22 @@ class CaptionExtractor:
             helpers.save_obj(self.captions, 'captions')
 
     def build(self, candidate_captions):
-        if self.is_training:
-            self.guidance_caption = candidate_captions[random.randint(0, FLAGS.k)]
-        else:
-            # Compute the consensus score and find the highest scoring caption
-            caption_combos = itertools.combinations(candidate_captions, 2)
-            consensus_scores = tf.map_fn(self.get_consensus_score, caption_combos)
-            self.guidance_caption = tf.argmax(consensus_scores)
+        self.guidance_caption_train = candidate_captions[random.randint(0, FLAGS.k)]
+
+        """""
+        # Compute the consensus score and find the highest scoring caption
+        caption_combos = itertools.combinations(candidate_captions, 2)
+        consensus_scores = tf.map_fn(self.get_consensus_score, caption_combos)
+        self.guidance_caption_test = tf.argmax(consensus_scores)
+        """
 
     '''
     ETL related functions
     '''
+
+    @staticmethod
+    def extend_to_len(x, n=300):
+        x.extend(['' for _ in range(n - len(x))])
 
     @staticmethod
     def get_annotations(path=helpers.get_captions_path()):
@@ -101,7 +105,7 @@ class CaptionExtractor:
                 self.captions[filename] = {}
 
             caption = annotation['caption']
-            stemmed_caption = self.stem_sentence(caption)
+            stemmed_caption = self.tokenize_sentence(caption)
             self.captions[filename][caption] = self.get_gram_representation(stemmed_caption)
 
             used = []
@@ -125,7 +129,7 @@ class CaptionExtractor:
             for annotation in self.annotations_data:
                 self.make_caption_representation(image['file_name'], image['id'], annotation)
 
-    def stem_sentence(self, sentence):
+    def tokenize_sentence(self, sentence):
         return [self.stem_word(word) for word in nltk.word_tokenize(sentence)]
 
     def stem_word(self, word):
