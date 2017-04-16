@@ -13,9 +13,19 @@ class Decoder:
     def __init__(self, context_vector):
         print("New 'Decoder' instance has been initialized.")
 
-        cell = tf.contrib.rnn.core_rnn_cell.LSTMCell(512)
-        output, state = tf.contrib.rnn.static_rnn(cell, [context_vector], dtype=tf.float32)
-        self.output = tf.nn.dropout(output, FLAGS.dropout_rate)
+        with tf.variable_scope('decoder'):
+            # Embedding layer
+            embedding_c_init = tf.truncated_normal([FLAGS.conv_size, FLAGS.vocab_size], stddev=.1)
+            embedding_c = tf.Variable(embedding_c_init)
+            x0 = tf.matmul(context_vector, embedding_c)
 
-    def generate_caption(self):
+            # LSTM layer
+            lstm = tf.contrib.rnn.BasicLSTMCell(FLAGS.embedding_size, state_is_tuple=False)
+            rnn_output, rnn_state = tf.contrib.rnn.static_rnn(lstm, [x0], dtype=tf.float32)
+
+            # Prediction layer
+            output = tf.nn.dropout(rnn_output[0], FLAGS.dropout_rate)
+            self.output = tf.nn.softmax(output)
+
+    def transcribe_caption(self):
         pass

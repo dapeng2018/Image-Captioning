@@ -1,6 +1,6 @@
 """
     Author: Mohamed K. Eid (mohamedkeid@gmail.com)
-    Description:
+    Description: Contains various auxiliary functions.
 """
 
 import logging

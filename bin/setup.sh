@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Author: Mohamed K. Eid (mohamedkeid@gmail.com)
+# Description: Executable shell script for downloading, extrcating, and installing prerequisite files.
+
 # Var paths
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LIB_DIR="$DIR/../lib"

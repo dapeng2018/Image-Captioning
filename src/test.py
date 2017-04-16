@@ -1,6 +1,6 @@
 """
     Author: Mohamed K. Eid (mohamedkeid@gmail.com)
-    Description:
+    Description: Executable script for generating a caption given an input image and an already trained model.
 """
 
 import logging

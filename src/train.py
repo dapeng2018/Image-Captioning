@@ -1,6 +1,6 @@
 """
     Author: Mohamed K. Eid (mohamedkeid@gmail.com)
-    Description: This script is used to train a captioning model based on 'Text-guided Attention Model for Image Captioning'
+    Description: Executable script for training a new captioning model.
 """
 
 import helpers
@@ -38,7 +38,7 @@ with tf.Session() as sess:
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
     image_name_ph = tf.placeholder(dtype=tf.string)
-    label_ph = tf.placeholder(dtype=tf.int32, shape=[FLAGS.embedding_size])
+    labels_ph = tf.placeholder(tf.int32, shape=[None, FLAGS.embedding_size])
     learning_rate_ph = tf.placeholder(dtype=tf.float32, shape=[1])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, 7, 7, 4096])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), 7, 7, 4096])
@@ -66,19 +66,25 @@ with tf.Session() as sess:
     captioner = Decoder(tatt.context_vector)
     output_caption = captioner.output
 
-    # Loss ops
-    logits = 0
-    y_as_list = tf.unstack(y, num=FLAGS.embedding_size, axis=1)
-    ll = zip(logits, y_as_list)
-    loss = [tf.nn.sparse_softmax_cross_entropy_with_logits(labels=label, logits=logit) for logit, label in ll]
+    # Loss op
+    seq_weights = tf.ones_like(labels_ph, dtype=tf.float32)
+    loss = tf.contrib.seq2seq.sequence_loss(output_caption, labels_ph, seq_weights, FLAGS.vocab_size)
 
     # Optimization ops
     with tf.name_scope('optimization'):
         optimizer = tf.train.AdamOptimizer(learning_rate_ph)
-        attention_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="attention")
-        decoder_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="decoder")
-        grads = optimizer.compute_gradients(loss, [attention_vars, decoder_vars])
-        update_step = optimizer.apply_gradients(grads)
+
+        # Attention optimization ops
+        attention_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='attention')
+        attention_grads = optimizer.compute_gradients(loss, attention_vars)
+        update_attention = optimizer.apply_gradients(attention_grads)
+
+        # Decoder optimization ops
+        decoder_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='attention')
+        decoder_grads = optimizer.compute_gradients(loss, decoder_vars)
+        update_decoder = optimizer.apply_gradients(decoder_grads)
+
+        update_step = tf.group(update_attention, update_decoder)
 
     # Training data ops
     example_image, example_filename = helpers.next_example(height=FLAGS.train_height, width=FLAGS.train_width)
@@ -103,7 +109,7 @@ with tf.Session() as sess:
     start_time = time.time()
     saver = tf.train.Saver()
 
-    # Optimize
+    # Optimization loop
     for i in range(FLAGS.training_iters):
         nearest_neighbors = neighbor.nearest.eval()
         candidate_captions = [extractor.captions[filename] for filename in nearest_neighbors]
