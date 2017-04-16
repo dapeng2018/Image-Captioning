@@ -33,19 +33,18 @@ def config_model_flags():
     tf.flags.DEFINE_integer('kk', 16, 'Filter map size (height * width) of the vgg image encoding')
     tf.flags.DEFINE_integer('n', 60, 'Number of nearest neighbors to retrieve')
     tf.flags.DEFINE_integer('ngrams', 4, 'Number of grams (up-to) for candidate caption scoring')
+    tf.flags.DEFINE_float('sched_rate', .75, 'Selection probability for scheduled sampling')
     tf.flags.DEFINE_integer('stv_size', 2400, '')
     tf.flags.DEFINE_integer('training_iters', 100, 'Number of training iterations')
     tf.flags.DEFINE_integer('train_height', 512, 'Height in which training images are to be scaled to')
     tf.flags.DEFINE_integer('train_width', 512, 'Width in which training images are to be scaled to')
-    tf.flags.DEFINE_integer('train_height_sim', 224,
-                            'Height in which images are to be scaled to for similarity comparison')
-    tf.flags.DEFINE_integer('train_width_sim', 224,
-                            'Width in which images are to be scaled to for similarity comparison')
+    tf.flags.DEFINE_integer('train_height_sim', 224, 'Height that images are to be scaled to for similarity comparison')
+    tf.flags.DEFINE_integer('train_width_sim', 224, 'Width that images are to be scaled to for similarity comparison')
     tf.flags.DEFINE_integer('vocab_size', 9568, 'Total size of vocabulary including <BOS> and <EOS>')
 
+    # Skip thought vector model flags
     stv_lib = get_lib_path() + '/stv/'
-    tf.flags.DEFINE_string('stv_vocab_file', stv_lib + 'vocab.txt',
-                           'Path to vocab file containing a list of words for STV')
+    tf.flags.DEFINE_string('stv_vocab_file', stv_lib + 'vocab.txt', 'Path to vocab file containing STV word list')
     tf.flags.DEFINE_string('stv_checkpoint_path', stv_lib + 'model.ckpt-501424', 'Path to STV model weights checkpoint')
     tf.flags.DEFINE_string('stv_embeddings_file', stv_lib + 'embeddings.npy', 'Path to word embeddings for STV')
 

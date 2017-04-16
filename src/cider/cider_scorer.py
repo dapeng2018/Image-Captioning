@@ -25,6 +25,7 @@ def precook(s, n=4, out=False):
             counts[ngram] += 1
     return counts
 
+
 def cook_refs(refs, n=4): ## lhuang: oracle will call with "average"
     '''Takes a list of reference sentences for a single segment
     and returns an object that encapsulates everything that BLEU
@@ -35,6 +36,7 @@ def cook_refs(refs, n=4): ## lhuang: oracle will call with "average"
     '''
     return [precook(ref, n) for ref in refs]
 
+
 def cook_test(test, n=4):
     '''Takes a test sentence and returns an object that
     encapsulates everything that BLEU needs to know about it.
@@ -43,6 +45,7 @@ def cook_test(test, n=4):
     :return: result (dict)
     '''
     return precook(test, n, True)
+
 
 class CiderScorer(object):
     """CIDEr scorer.
