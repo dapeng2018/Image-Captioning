@@ -19,7 +19,7 @@ NUM_NEIGHBORS = 60
 
 
 class CaptionExtractor:
-    def __init__(self):
+    def __init__(self, candidate_captions):
         print("New 'CaptionExtractor' instance has been initialized.")
 
         # Variables for computing metrics and performing transformations
@@ -40,7 +40,6 @@ class CaptionExtractor:
             helpers.save_obj(self.gram_frequencies, 'gram_frequencies')
             helpers.save_obj(self.captions, 'captions')
 
-    def build(self, candidate_captions):
         self.guidance_caption_train = candidate_captions[random.randint(0, FLAGS.k)]
 
         """""

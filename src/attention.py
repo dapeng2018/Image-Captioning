@@ -10,10 +10,9 @@ FLAGS = tf.flags.FLAGS
 
 
 class Attention:
-    def __init__(self):
+    def __init__(self, image_encoding, caption_encoding):
         print("New 'Attention' instance has been initialized.")
 
-    def build(self, image_encoding, caption_encoding):
         # Image feature ops
         image_encoding = tf.reshape(image_encoding, shape=[-1, FLAGS.conv_size])
         w_image_init = tf.random_uniform([FLAGS.conv_size, FLAGS.embedding_size], -1., 1.)

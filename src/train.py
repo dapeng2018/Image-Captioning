@@ -31,8 +31,9 @@ tf.flags.DEFINE_integer('print_every', 100, 'How often (iterations) to log the c
 tf.flags.DEFINE_integer('save_every', 1000, 'How often (iterations) to save the current state of the model')
 
 tf.flags.DEFINE_integer('conv_size', 1024, '')
+tf.flags.DEFINE_float('dropout_rate', .5, '')
 tf.flags.DEFINE_integer('embedding_size', 512, '')
-tf.flags.DEFINE_integer('k', 10, 'Number of candidate captions to retrieve')
+tf.flags.DEFINE_integer('k', 10, 'Number of consensus captions to retrieve')
 tf.flags.DEFINE_integer('kk', 16, '')
 tf.flags.DEFINE_integer('n', 60, 'Number of nearest neighbors to retrieve')
 tf.flags.DEFINE_integer('ngrams', 4, '')
@@ -42,7 +43,7 @@ tf.flags.DEFINE_integer('train_height', 512, 'Height in which training images ar
 tf.flags.DEFINE_integer('train_width', 512, 'Width in which training images are to be scaled to')
 tf.flags.DEFINE_integer('train_height_sim', 224, 'Height in which images are to be scaled to for similarity comparison')
 tf.flags.DEFINE_integer('train_width_sim', 224, 'Width in which images are to be scaled to for similarity comparison')
-tf.flags.DEFINE_integer('vocab_length', 9568, 'Total size of vocabulary including <BOS> and <EOS>')
+tf.flags.DEFINE_integer('vocab_size', 9568, 'Total size of vocabulary including <BOS> and <EOS>')
 
 stv_lib = helpers.get_lib_path() + '/stv/'
 tf.flags.DEFINE_string('stv_vocab_file', stv_lib + 'vocab.txt', 'Path to vocab file containing a list of words for STV')
@@ -57,11 +58,8 @@ with tf.Session() as sess:
 
     # Initialize system instances
     neighbor = Neighbor()
-    extractor = CaptionExtractor()
     vgg = Vgg16()
     stv = EncoderManager()
-    tatt = Attention()
-    captioner = Decoder()
 
     # Skip thought model initialization
     stv_uni_config = stv_configuration.model_config()
@@ -75,6 +73,7 @@ with tf.Session() as sess:
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
     candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[FLAGS.n * FLAGS.k])
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
+    label_ph = tf.placeholder(dtype=tf.int32, shape=[FLAGS.embedding_size])
 
     seq_len_ph = tf.placeholder(dtype=tf.int32, shape=[None, ])
     learning_rate_ph = tf.placeholder(dtype=tf.float32, shape=[1])
@@ -84,11 +83,11 @@ with tf.Session() as sess:
     vgg.build(image_ph, image_shape[1:])
     conv_encoding = vgg.pool5
     fc_encoding = vgg.fc7
-    extractor.build(candidate_captions_ph)
+    extractor = CaptionExtractor(candidate_captions_ph)
 
     # Attention model and decoder
-    tatt.build(conv_encoding, caption_encoding_ph)
-    captioner.build(tatt.context_vector)
+    tatt = Attention(conv_encoding, caption_encoding_ph)
+    captioner = Decoder(tatt.context_vector)
     output_caption = captioner.output
 
     loss = 0
@@ -96,8 +95,9 @@ with tf.Session() as sess:
     # Optimization ops
     with tf.name_scope('optimization'):
         optimizer = tf.train.AdamOptimizer(learning_rate_ph)
-        trainable_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
-        grads = optimizer.compute_gradients(loss, trainable_vars)
+        attention_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="attention")
+        decoder_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope="decoder")
+        grads = optimizer.compute_gradients(loss, [attention_vars, decoder_vars])
         update_step = optimizer.apply_gradients(grads)
 
     # Training data ops
