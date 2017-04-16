@@ -10,10 +10,9 @@ FLAGS = tf.flags.FLAGS
 
 
 class Neighbor:
-    def __init__(self):
+    def __init__(self, input_encoding, training_encodings, training_filenames):
         print("New 'Neighbor' instance has be initialized.")
 
-    def build(self, input_encoding, training_encodings, training_filenames):
         similarities = helpers.get_cosine_similarity(input_encoding, training_encodings)
         _, indices = tf.nn.top_k(similarities, k=FLAGS.k)
         self.nearest = tf.gather(training_filenames, indices)

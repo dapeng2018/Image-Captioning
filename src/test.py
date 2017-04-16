@@ -12,12 +12,12 @@ from vgg.fcn16_vgg import FCN16VGG as Vgg16
 
 FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_string('path', None, '')
+helpers.config_model_flags()
 helpers.config_logging(env='testing')
 
-with tf.Session as sess:
-    extractor = CaptionExtractor()
-    sess.run(tf.global_variables_initializer())
 
+with tf.Session as sess:
+    sess.run(tf.global_variables_initializer())
     sess.close()
 
 exit(0)

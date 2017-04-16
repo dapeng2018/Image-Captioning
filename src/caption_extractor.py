@@ -6,10 +6,11 @@
 import helpers
 import itertools
 import json
-import tensorflow as tf
+import logging
 import math
 import nltk
 import random
+import tensorflow as tf
 from neighbor import Neighbor
 from sklearn.feature_extraction.text import CountVectorizer
 
@@ -21,6 +22,16 @@ NUM_NEIGHBORS = 60
 class CaptionExtractor:
     def __init__(self, candidate_captions):
         print("New 'CaptionExtractor' instance has been initialized.")
+
+        '''
+        For training
+        '''
+
+        self.guidance_caption_train = candidate_captions[random.randint(0, FLAGS.k)]
+
+        '''
+        For inference
+        '''
 
         # Variables for computing metrics and performing transformations
         self.neighbor = Neighbor()
@@ -40,13 +51,15 @@ class CaptionExtractor:
             helpers.save_obj(self.gram_frequencies, 'gram_frequencies')
             helpers.save_obj(self.captions, 'captions')
 
-        self.guidance_caption_train = candidate_captions[random.randint(0, FLAGS.k)]
 
         """""
         # Compute the consensus score and find the highest scoring caption
-        caption_combos = itertools.combinations(candidate_captions, 2)
+        test_candidate_captions = 0
+        caption_combos = itertools.combinations(test_candidate_captions, 2)
         consensus_scores = tf.map_fn(self.get_consensus_score, caption_combos)
-        self.guidance_caption_test = tf.argmax(consensus_scores)
+
+        indices = tf.argmax(consensus_scores, dimension=1)
+        self.guidance_caption_test = tf.gather(test_candidate_captions, indices)
         """
 
     '''
@@ -59,12 +72,6 @@ class CaptionExtractor:
 
     @staticmethod
     def get_annotations(path=helpers.get_captions_path()):
-        """
-
-        :param path:
-        :return:
-        """
-
         with open(path) as data_file:
             data = json.load(data_file)
             return data['annotations'], data['images']
@@ -89,16 +96,6 @@ class CaptionExtractor:
         return list(nltk.everygrams(word_list, min_len=1, max_len=n))
 
     def make_caption_representation(self, filename, image_id, annotation):
-        """
-        Given a caption, this returns its apprioriate n-gram representation and updates the gram frequencies list
-
-        :param filename
-        :param image_id:
-        :param lock:
-        :param annotation:
-        :return: gram_caption
-        """
-
         if annotation['image_id'] == image_id:
             if filename not in self.captions:
                 self.captions[filename] = {}
@@ -139,13 +136,6 @@ class CaptionExtractor:
     '''
 
     def get_cider_score(self, candidate, descriptions):
-        """
-
-        :param candidate:
-        :param descriptions:
-        :return:
-        """
-
         num_descriptions = len(descriptions)
         score = 0
 
@@ -162,13 +152,6 @@ class CaptionExtractor:
         return score
 
     def get_cider_scores(self, candidate, descriptions):
-        """
-
-        :param candidate:
-        :param descriptions:
-        :return:
-        """
-
         score = 0
 
         for i in range(NUM_GRAMS):
@@ -196,13 +179,6 @@ class CaptionExtractor:
         return reference_senence.count(gram)
 
     def get_tfidf(self, gram, reference_sentence):
-        """
-
-        :param gram:
-        :param reference_sentence:
-        :return:
-        """
-
         term_frequency = self.get_term_reference_frequency(gram, reference_sentence)
         doc_frequency = self.get_term_frequency(gram)
         frequency = term_frequency / doc_frequency
