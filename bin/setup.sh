@@ -5,7 +5,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 LIB_DIR="$DIR/../lib"
 STV_DIR="$LIB_DIR/stv"
 
-# Create lib dir for stv if it doesn't exist
+# Create lib dir and stv dir if they do not exist
+if [[ ! -d $LIB_DIR ]]; then mkdir $LIB_DIR; fi
 if [[ ! -d $STV_DIR ]]; then mkdir $STV_DIR; fi
 
 # Downloads dependencies

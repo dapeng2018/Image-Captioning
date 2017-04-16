@@ -3,6 +3,7 @@
     Description:
 """
 
+from cider.cider import Cider
 import helpers
 import itertools
 import json
@@ -11,7 +12,6 @@ import math
 import nltk
 import random
 import tensorflow as tf
-from neighbor import Neighbor
 from sklearn.feature_extraction.text import CountVectorizer
 
 FLAGS = tf.flags.FLAGS
@@ -23,10 +23,7 @@ class CaptionExtractor:
     def __init__(self, candidate_captions):
         print("New 'CaptionExtractor' instance has been initialized.")
 
-        '''
-        For training
-        '''
-
+        self.cider = Cider(n=FLAGS.ngrams)
         self.guidance_caption_train = candidate_captions[random.randint(0, FLAGS.k)]
 
         '''
@@ -34,7 +31,6 @@ class CaptionExtractor:
         '''
 
         # Variables for computing metrics and performing transformations
-        self.neighbor = Neighbor()
         self.stemmer = nltk.stem.WordNetLemmatizer()
         self.vectorizer = CountVectorizer()
 
@@ -75,6 +71,9 @@ class CaptionExtractor:
         with open(path) as data_file:
             data = json.load(data_file)
             return data['annotations'], data['images']
+
+    def get_candidate_captions(self):
+        pass
 
     def get_consensus_score(self, caption, collection):
         """
