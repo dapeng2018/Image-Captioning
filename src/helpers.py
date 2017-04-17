@@ -26,11 +26,11 @@ def config_logging(env='training'):
 
 
 def config_model_flags():
-    tf.flags.DEFINE_integer('conv_size', 1024, 'Number of maps of the vgg image encoding')
+    tf.flags.DEFINE_integer('conv_size', 512, 'Number of maps of the vgg image encoding')
     tf.flags.DEFINE_float('dropout_rate', .5, 'Probability of applying dropout for the final layer of the decoder')
     tf.flags.DEFINE_integer('embedding_size', 512, 'Max length of the embedding space')
     tf.flags.DEFINE_integer('k', 10, 'Number of consensus captions to retrieve')
-    tf.flags.DEFINE_integer('kk', 16, 'Filter map size (height * width) of the vgg image encoding')
+    tf.flags.DEFINE_integer('kk', 16 * 16, 'Filter map size (height * width) of the vgg image encoding')
     tf.flags.DEFINE_integer('n', 60, 'Number of nearest neighbors to retrieve')
     tf.flags.DEFINE_integer('ngrams', 4, 'Number of grams (up-to) for candidate caption scoring')
     tf.flags.DEFINE_float('sched_rate', .75, 'Selection probability for scheduled sampling')
@@ -61,9 +61,13 @@ def get_captions_path(train=True):
 
 
 def get_cosine_similarity(a, b):
+    a = tf.reshape(a, shape=[-1, 7 * 7 * 4096])
+    b = tf.reshape(b, shape=[-1, 7 * 7 * 4096])
+
     a_norm = get_l2_norm(a)
     b_norm = get_l2_norm(b)
-    ab = tf.matmul(b, a, transpose_b=True)
+
+    ab = tf.matmul(a, b, transpose_b=True)
     similarity = ab / (a_norm * b_norm)
     return similarity
 

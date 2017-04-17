@@ -15,6 +15,7 @@ from decoder import Decoder
 from neighbor import Neighbor
 from stv.encoder_manager import EncoderManager
 from vgg.fcn16_vgg import FCN16VGG as Vgg16
+from vocab import Vocab
 
 FLAGS = tf.flags.FLAGS
 helpers.config_model_flags()
@@ -33,12 +34,15 @@ tf.flags.DEFINE_integer('save_every', 1000, 'How often (iterations) to save the 
 
 
 with tf.Session() as sess:
+    # Init
+    vocab = Vocab()
+
     # Initialize placeholders
     candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[FLAGS.n * 5])
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
     image_name_ph = tf.placeholder(dtype=tf.string)
-    labels_ph = tf.placeholder(tf.int32, shape=[None, FLAGS.embedding_size])
+    labels_ph = tf.placeholder(tf.int32, shape=(None, FLAGS.vocab_size))
     learning_rate_ph = tf.placeholder(dtype=tf.float32, shape=[1])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, 7, 7, 4096])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), 7, 7, 4096])
@@ -63,12 +67,12 @@ with tf.Session() as sess:
 
     # Attention model and decoder
     tatt = Attention(conv_encoding, caption_encoding_ph)
-    captioner = Decoder(tatt.context_vector)
-    output_caption = captioner.output
+    decoder = Decoder(tatt.context_vector)
+    logits = decoder.logits
 
-    # Loss op
-    seq_weights = tf.ones_like(labels_ph, dtype=tf.float32)
-    loss = tf.contrib.seq2seq.sequence_loss(output_caption, labels_ph, seq_weights, FLAGS.vocab_size)
+    # Loss ops
+    losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels_ph, logits=logits)
+    loss = tf.reduce_sum(losses)
 
     # Optimization ops
     with tf.name_scope('optimization'):
@@ -80,7 +84,7 @@ with tf.Session() as sess:
         update_attention = optimizer.apply_gradients(attention_grads)
 
         # Decoder optimization ops
-        decoder_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='attention')
+        decoder_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='decoder')
         decoder_grads = optimizer.compute_gradients(loss, decoder_vars)
         update_decoder = optimizer.apply_gradients(decoder_grads)
 

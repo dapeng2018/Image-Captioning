@@ -21,7 +21,7 @@ NUM_NEIGHBORS = 60
 
 class CaptionExtractor:
     def __init__(self, candidate_captions):
-        print("New 'CaptionExtractor' instance has been initialized.")
+        logging.info("New 'CaptionExtractor' instance has been initialized.")
 
         self.cider = Cider(n=FLAGS.ngrams)
         self.guidance_caption_train = candidate_captions[random.randint(0, FLAGS.k)]

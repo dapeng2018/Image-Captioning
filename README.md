@@ -24,11 +24,11 @@ python3 train.py
 
 * [atention.py](./src/attention.py)
 
-
+    Class responsible for text-guided attention.
 
 * [caption_extractor.py](./src/caption_extractor.py)
 
-
+    Class responsible extracting a guidance caption and other operations related to ETL of sentences.
 
 * [cider.py](./src/cider/cider.py)
 
@@ -51,7 +51,7 @@ python3 train.py
     
 * [decoder.py](./src/decoder.py)
 
-
+    Class responsible for decoding a context vector into a predicted encoded caption.
 
 * [encoder_manager.py](./src/stv/encoder_manager.py)
 
@@ -100,4 +100,8 @@ python3 train.py
 * [train.py](./src/train.py)
 
     Executable script for training a new captioning model.
+    
+* [vocab.py](./src/vocab.py)
+
+    Class responsible for vocabulary retrieval, encoding, decoding, and other operations.
 
