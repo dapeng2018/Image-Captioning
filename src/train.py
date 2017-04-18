@@ -69,12 +69,10 @@ with tf.Session() as sess:
 
     # Attention model and decoder
     tatt = Attention(conv_encoding, caption_encoding_ph)
-    decoder = Decoder(tatt.context_vector)
-    outputs = decoder.output
+    decoder = Decoder(tatt.context_vector, label_ph)
 
     # Loss op
-    loss = tf.reduce_mean(
-        tf.nn.sparse_softmax_cross_entropy_with_logits(logits=outputs, labels=label_ph))
+    loss = decoder.total_loss
 
     # Optimization ops
     with tf.name_scope('optimization'):
