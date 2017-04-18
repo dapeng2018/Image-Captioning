@@ -34,6 +34,7 @@ def config_model_flags():
     tf.flags.DEFINE_integer('n', 60, 'Number of nearest neighbors to retrieve')
     tf.flags.DEFINE_integer('ngrams', 4, 'Number of grams (up-to) for candidate caption scoring')
     tf.flags.DEFINE_float('sched_rate', .75, 'Selection probability for scheduled sampling')
+    tf.flags.DEFINE_integer('state_size', 512, 'State size of the LSTM')
     tf.flags.DEFINE_integer('stv_size', 2400, '')
     tf.flags.DEFINE_integer('training_iters', 100, 'Number of training iterations')
     tf.flags.DEFINE_integer('train_height', 512, 'Height in which training images are to be scaled to')

@@ -13,10 +13,10 @@ class Attention:
     def __init__(self, image_encoding, caption_encoding):
         print("New 'Attention' instance has been initialized.")
 
-        with tf.name_scope('attention'):
+        with tf.variable_scope('attention'):
             # Image feature ops
-            image_encoding = tf.reshape(image_encoding, shape=[-1, FLAGS.embedding_size])
-            w_image_init = tf.random_uniform([FLAGS.embedding_size, FLAGS.embedding_size], -1., 1.)
+            image_encoding = tf.reshape(image_encoding, shape=[-1, FLAGS.conv_size])
+            w_image_init = tf.random_uniform([FLAGS.conv_size, FLAGS.embedding_size], -1., 1.)
             w_image = tf.Variable(w_image_init)
             c_image = tf.matmul(image_encoding, w_image)
             b_image = tf.Variable(tf.constant(.0, shape=[FLAGS.embedding_size]))

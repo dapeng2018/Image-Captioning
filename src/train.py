@@ -29,6 +29,7 @@ tf.flags.DEFINE_integer('learning_rate_dec_freq', 3, 'How often (iterations) the
 tf.flags.DEFINE_integer('learning_rate_dec_thresh', 10, 'Number of iterations before learning rate starts decreasing')
 
 # Misc flags
+tf.flags.DEFINE_float('epsilon', 1e-12, 'Tiny value to for log parameters')
 tf.flags.DEFINE_integer('print_every', 100, 'How often (iterations) to log the current progress of training')
 tf.flags.DEFINE_integer('save_every', 1000, 'How often (iterations) to save the current state of the model')
 
@@ -42,7 +43,7 @@ with tf.Session() as sess:
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
     image_name_ph = tf.placeholder(dtype=tf.string)
-    labels_ph = tf.placeholder(tf.int32, shape=(None, FLAGS.vocab_size))
+    label_ph = tf.placeholder(tf.int32, shape=(None, FLAGS.vocab_size))
     learning_rate_ph = tf.placeholder(dtype=tf.float32, shape=[1])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, 7, 7, 4096])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), 7, 7, 4096])
@@ -53,26 +54,27 @@ with tf.Session() as sess:
     image_shape = [1, FLAGS.train_height, FLAGS.train_width, 3]
     neighbor = Neighbor(image_fc_encoding_ph, training_fc_encodings_ph, training_filenames_ph)
 
-    # Initialize skip-thought-vector model
+    # Initialize encoders
+    with tf.name_scope('encoders'):
+        vgg = Vgg16()
+        vgg.build(image_ph, image_shape[1:])
+        conv_encoding = vgg.pool5
+        fc_encoding = vgg.fc7
+
+    # Initialize guidance caption extractor and skip-thought-vector model
+    extractor = CaptionExtractor(candidate_captions_ph)
     stv = EncoderManager()
     stv_uni_config = stv_configuration.model_config()
     stv.load_model(stv_uni_config, FLAGS.stv_vocab_file, FLAGS.stv_embeddings_file, FLAGS.stv_checkpoint_path)
 
-    # Initialize encoders
-    vgg = Vgg16()
-    vgg.build(image_ph, image_shape[1:])
-    conv_encoding = vgg.pool5
-    fc_encoding = vgg.fc7
-    extractor = CaptionExtractor(candidate_captions_ph)
-
     # Attention model and decoder
     tatt = Attention(conv_encoding, caption_encoding_ph)
     decoder = Decoder(tatt.context_vector)
-    logits = decoder.logits
+    outputs = decoder.output
 
-    # Loss ops
-    losses = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=labels_ph, logits=logits)
-    loss = tf.reduce_sum(losses)
+    # Loss op
+    loss = tf.reduce_mean(
+        tf.nn.sparse_softmax_cross_entropy_with_logits(logits=outputs, labels=label_ph))
 
     # Optimization ops
     with tf.name_scope('optimization'):

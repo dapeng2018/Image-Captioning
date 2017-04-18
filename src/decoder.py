@@ -5,6 +5,7 @@
 
 import logging
 import tensorflow as tf
+from functools import partial
 
 FLAGS = tf.flags.FLAGS
 
@@ -14,41 +15,31 @@ class Decoder:
         logging.info("New 'Decoder' instance has been initialized.")
 
         with tf.variable_scope('decoder'):
-            # Embedding layer
-            x0_init = tf.truncated_normal([FLAGS.conv_size, FLAGS.vocab_size], stddev=.1)
-            x0_c = tf.Variable(x0_init)
-            x0 = tf.matmul(context_vector, x0_c)
+            # Context embedding layer
+            x0_weights_init = tf.random_uniform([FLAGS.conv_size, FLAGS.vocab_size], -1.0, 1.0)
+            x0_weights = tf.Variable(x0_weights_init)
+            x0 = tf.matmul(context_vector, x0_weights)
 
-            embed_init = tf.random_uniform([FLAGS.vocab_size, FLAGS.embedding_size], -1.0, 1.0)
-            embed = tf.Variable(embed_init)
-            word_ids = tf.argmax(x0, axis=1)
-            word_embeddings = tf.nn.embedding_lookup(embed, word_ids)
+            # Word embedding layer
+            weights_shape = [FLAGS.vocab_size, FLAGS.embedding_size]
+            weights_init = tf.random_uniform(weights_shape, -1., 1.)
+            self.word_embeddings = tf.Variable(weights_init)
+            x = tf.matmul(x0, self.word_embeddings)
 
             # LSTM layer
             lstm = tf.contrib.rnn.BasicLSTMCell(FLAGS.embedding_size, state_is_tuple=True)
             rnn_outputs, rnn_states = tf.contrib.rnn.static_rnn(
                 cell=lstm,
-                inputs=[word_embeddings],
+                inputs=[x],
                 initial_state=lstm.zero_state(FLAGS.batch_size, dtype=tf.float32),
                 dtype=tf.float32,
                 sequence_length=tf.convert_to_tensor([FLAGS.embedding_size for _ in range(FLAGS.batch_size)]))
 
             # Prediction layer
-            weights_shape = [FLAGS.embedding_size, FLAGS.vocab_size]
-            weights_init = tf.random_uniform(weights_shape, -1., 1.)
-            weights = tf.Variable(weights_init)
-
-            def predict(output):
-                return tf.matmul(output[0], weights)
-
-            predictions = tf.map_fn(predict, rnn_outputs)
-            self.logits = tf.nn.dropout(predictions, FLAGS.dropout_rate)
+            self.output = tf.matmul(rnn_outputs[-1], self.word_embeddings, transpose_b=True)
 
     def get_caption(self, vocab, caption):
         pass
 
-    @staticmethod
-    def transcribe_caption(vocab, word_indices):
-        words = tf.gather(vocab.list, word_indices)
-        word_list = words.eval()
-        return ' '.join(word_list)
+    def get_word_embedding(self, word_ids):
+        return tf.nn.embedding_lookup(self.word_embeddings, word_ids)

@@ -13,7 +13,7 @@ FLAGS = tf.flags.FLAGS
 
 class Vocab:
     def __init__(self):
-        print("New 'Vocab' instance has been initialized.")
+        logging.info("New 'Vocab' instance has been initialized.")
 
         self.list = self.get_list()
         FLAGS.vocab_size = int(self.list.get_shape()[0])
@@ -33,5 +33,5 @@ class Vocab:
         lines = [line.rstrip('\n') for line in open(filename)]
         return tf.convert_to_tensor(lines)
 
-    def encode_one_hot(self, sentence):
+    def get_word_ids(self):
         pass
