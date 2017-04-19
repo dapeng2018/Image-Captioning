@@ -94,13 +94,16 @@ class CiderScorer(object):
             self.crefs.extend(other.crefs)
 
         return self
+
     def compute_doc_freq(self):
-        '''
+        """
         Compute term frequency for reference data.
         This will be used to compute idf (inverse document frequency later)
         The term frequency is stored in the object
+
         :return: None
-        '''
+        """
+
         for refs in self.crefs:
             # refs, k ref captions of one image
             for ngram in set([ngram for ref in refs for (ngram, count) in ref.items()]):
@@ -113,6 +116,7 @@ class CiderScorer(object):
             Function maps counts of ngram to vector of tfidf weights.
             The function returns vec, an array of dictionary that store mapping of n-gram and tf-idf weights.
             The n-th entry of array denotes length of n-grams.
+
             :param cnts:
             :return: vec (array of dict), norm (array of float), length (int)
             """

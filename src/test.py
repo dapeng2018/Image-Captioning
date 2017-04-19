@@ -65,7 +65,7 @@ with tf.Session(config=config) as sess:
     conv_encoding = vgg.pool5
     fc_encoding = vgg.fc7
     tatt = Attention(conv_encoding, caption_encoding_ph)
-    decoder = Decoder(tatt.context_vector)
+    #decoder = Decoder(tatt.context_vector)
 
     # Retrieve training images for caption extraction
     example_image, example_filename = helpers.next_example(height=FLAGS.train_height, width=FLAGS.train_width)
@@ -96,13 +96,11 @@ with tf.Session(config=config) as sess:
         image_fc_encoding_ph: input_fc_encoding,
         training_fc_encodings_ph: training_fc_encodings,
         training_filenames_ph: all_filenames_eval}
-    nearest_neighbors = neighbor.nearest.eval(feed_dict=neighbor_dict)[0]
+    nearest_neighbors = neighbor.nearest.eval(feed_dict=neighbor_dict)
 
     # Get candidate captions
-    extractor = CaptionExtractor(candidate_captions_ph)
-    candidate_captions = [extractor.captions[os.path.basename(filename.decode('UTF-8'))]
-                          for filename in nearest_neighbors]
-    candidate_captions = list(itertools.chain(*candidate_captions))
+    extractor = CaptionExtractor()
+    candidate_captions = extractor.get_candidates_from_neighbors(nearest_neighbors)
 
     # Extract guidance caption as the top CIDEr scoring sentence
     guidance_caption = extractor.get_guidance_caption(candidate_captions, inference=True)

@@ -62,12 +62,13 @@ def get_cosine_similarity(a, b):
     shape = [-1, FLAGS.kk * 4096]
     a = tf.reshape(a, shape=shape)
     b = tf.reshape(b, shape=shape)
-
-    a_norm = get_l2_norm(a)
-    b_norm = get_l2_norm(b)
-
     ab = tf.matmul(a, b, transpose_b=True)
-    similarity = ab / (a_norm * b_norm)
+
+    a_norm = tf.nn.l2_normalize(a, dim=1)
+    b_norm = tf.nn.l2_normalize(b, dim=1)
+    ab_norm = tf.matmul(a_norm, b_norm, transpose_b=True)
+
+    similarity = ab / ab_norm
     return similarity
 
 
@@ -100,12 +101,6 @@ def get_fc7_filenames():
 def get_session_config():
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
     return tf.ConfigProto(log_device_placement=True, gpu_options=gpu_options)
-
-
-def get_l2_norm(t):
-    t = tf.squeeze(t)
-    norm = tf.sqrt(tf.reduce_sum(tf.square(t)))
-    return norm
 
 
 def get_lib_path():

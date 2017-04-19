@@ -51,5 +51,5 @@ class Cider:
         return score, scores
 
     @staticmethod
-    def method(self):
+    def method():
         return "CIDEr"

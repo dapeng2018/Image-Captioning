@@ -5,19 +5,23 @@
 
 from cider.cider import Cider
 import helpers
+import itertools
 import json
 import logging
 import nltk
 import numpy as np
+import os
 import random
+import re
 import tensorflow as tf
 from sklearn.feature_extraction.text import CountVectorizer
+from threading import Thread, Lock
 
 FLAGS = tf.flags.FLAGS
 
 
 class CaptionExtractor:
-    def __init__(self, candidate_captions):
+    def __init__(self):
         logging.info("New 'CaptionExtractor' instance has been initialized.")
 
         # Variables for computing metrics and performing transformations
@@ -38,7 +42,9 @@ class CaptionExtractor:
             helpers.save_obj(self.gram_frequencies, 'gram_frequencies')
             helpers.save_obj(self.captions, 'captions')
 
-        self.guidance_caption_train = candidate_captions[random.randint(0, FLAGS.k)]
+    @staticmethod
+    def clean_sentence(a):
+        return re.sub(r'[^\w\s]', '', a)
 
     @staticmethod
     def get_annotations(path=helpers.get_captions_path()):
@@ -46,25 +52,85 @@ class CaptionExtractor:
             data = json.load(data_file)
             return data['annotations'], data['images']
 
+    def get_candidates_from_neighbors(self, nearest_neighbors):
+        """
+        Return a set of candidate captions for each image giventhe nearest nearest neighbors
+
+        :param nearest_neighbors: list of filenames of shape [batch size, FLAGS.n]
+        :return: candidate captions of shape [batch size, FLAGS.k]
+        """
+
+        candidate_captions = [None] * FLAGS.batch_size
+        lock = Lock()
+
+        # Update batch candidate captions list given an example's nearest neighbors
+        def update_candidate_captions(extractor, neighbors, index):
+
+            # Get the captions from the captions list given a decoded basename of the paths
+            captions = [extractor.captions[os.path.basename(filename.decode('UTF-8'))]
+                        for filename in neighbors]
+            captions = list(itertools.chain(*captions))
+
+            with lock:
+                candidate_captions[index] = captions
+
+        # Iterate through each example's nearest neighbors in the batch
+        threads = []
+        for i, n in enumerate(nearest_neighbors):
+            t = Thread(target=update_candidate_captions, args=(self, n, i, ))
+            t.start()
+            threads.append(t)
+
+        [t.join() for t in threads]
+        return candidate_captions
+
     def get_guidance_caption(self, candidate_captions, inference=False):
-        gts, res = {}, {}
+        """
+        Return the guidance caption for each example in a batch
 
-        for i, caption in enumerate(candidate_captions):
-            res[i] = self.tokenize_sentence(caption)
-            gts[i] = [self.tokenize_sentence(reference)
-                      for reference in (set(candidate_captions) - set([caption]))]
+        :param candidate_captions: list of candidates for each example of shape [batch size, FLAGS.k]
+        :param inference: whether or not this is for inference (vs training)
+        :return: guidance caption for each example of shape [batch size, 1]
+        """
 
-        score, scores = self.cider.compute_score(gts, res)
+        guidance_caption = [None] * FLAGS.batch_size
+        lock = Lock()
 
-        if inference:
-            # Select the highest scoring caption
-            index = scores.index(max(scores))
-            return candidate_captions[index]
-        else:
-            # Select a random caption from the top k
-            indices = np.argpartition(candidate_captions, -FLAGS.k)[-FLAGS.k:]
-            top_captions = candidate_captions[indices]
-            return top_captions[random.randint(FLAGS.k - 1)]
+        # Update batch guidance caption list given an example's candidate captions
+        def update_guidance_caption(extractor, candidates, index):
+            gts = {}  # dictionary with key <image> and value <tokenized hypothesis / candidate sentence>
+            res = {}  # dictionary with key <image> and value <tokenized reference sentence>
+
+            for example_index, caption in enumerate(candidates):
+                caption = extractor.clean_sentence(caption)
+                gts[example_index] = [extractor.tokenizer.tokenize(reference)
+                                      for reference in (set(candidates) - set([caption]))]
+                res[example_index] = extractor.tokenizer.tokenize(caption)
+
+            score, scores = extractor.cider.compute_score(gts, res)
+
+            if inference:
+                # Select the highest scoring caption
+                score_index = scores.index(max(scores))
+                guidance = candidates[score_index]
+            else:
+                # Select a random caption from the top k to prevent overfitting during learning
+                indices = np.argpartition(candidates, -FLAGS.k)[-FLAGS.k:]
+                top_captions = candidates[indices]
+                guidance = top_captions[random.randint(FLAGS.k - 1)]
+
+            with lock:
+                guidance_caption[index] = guidance
+
+        # Iterate through each example's candidate captions and select the appropriate guidance caption
+        threads = []
+        for i, c in enumerate(candidate_captions):
+            t = Thread(target=update_guidance_caption, args=(self, c, i, ))
+            t.start()
+            threads.append(t)
+
+        [t.join() for t in threads]
+        return guidance_caption
 
     def make_caption_representation(self, filename, image_id, annotation):
         if annotation['image_id'] == image_id:

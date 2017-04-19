@@ -25,16 +25,14 @@ class Decoder:
             self.word_embeddings = tf.Variable(weights_init)
             self.logits = [tf.matmul(x0, self.word_embeddings, transpose_b=True)]
 
-            # x1
-            x = tf.matmul(self.logits[0], self.word_embeddings)
-            self.logits.append(tf.matmul(x, self.word_embeddings, transpose_b=True))
-
             # LSTM layer
             lstm = tf.contrib.rnn.BasicLSTMCell(FLAGS.embedding_size, state_is_tuple=True)
             state = lstm.zero_state(FLAGS.batch_size, dtype=tf.float32)
 
             for i in range(FLAGS.state_size):
-                output, state = lstm(self.logits[-1], state)
+                x = tf.matmul(self.logits[-1], self.word_embeddings)
+                self.logits.append(tf.matmul(x, self.word_embeddings, transpose_b=True))
+                output, state = lstm(x, state)
 
                 # Prediction layer
                 prediction = tf.matmul(output, self.word_embeddings, transpose_b=True)

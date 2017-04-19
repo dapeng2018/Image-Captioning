@@ -65,7 +65,7 @@ with tf.Session(config=config) as sess:
         fc_encoding = vgg.fc7
 
     # Initialize guidance caption extractor and skip-thought-vector model
-    extractor = CaptionExtractor(candidate_captions_ph)
+    extractor = CaptionExtractor()
     stv = EncoderManager()
     stv_uni_config = stv_configuration.model_config()
     stv.load_model(stv_uni_config, FLAGS.stv_vocab_file, FLAGS.stv_embeddings_file, FLAGS.stv_checkpoint_path)
