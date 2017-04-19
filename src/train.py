@@ -4,6 +4,7 @@
 """
 
 import helpers
+import math
 import logging
 import tensorflow as tf
 import time
@@ -22,30 +23,32 @@ helpers.config_model_flags()
 helpers.config_logging(env='training')
 
 # Optimization flags
-tf.flags.DEFINE_integer('batch_size', 80, 'Mini-Batch size of images')
-tf.flags.DEFINE_float('learning_rate', .0004, 'Optimizer learning rate')
+tf.flags.DEFINE_integer('batch_size', 16, 'Mini-Batch size of images')
+tf.flags.DEFINE_float('learning_rate', 4e-4, 'Optimizer learning rate')
 tf.flags.DEFINE_float('learning_rate_dec_factor', .8, 'Factor in which the learning rate decreases')
 tf.flags.DEFINE_integer('learning_rate_dec_freq', 3, 'How often (iterations) the learning rate decreases')
 tf.flags.DEFINE_integer('learning_rate_dec_thresh', 10, 'Number of iterations before learning rate starts decreasing')
 
 # Misc flags
-tf.flags.DEFINE_float('epsilon', 1e-12, 'Tiny value to for log parameters')
+tf.flags.DEFINE_float('epsilon', 1e-8, 'Tiny value to for log parameters')
 tf.flags.DEFINE_integer('print_every', 100, 'How often (iterations) to log the current progress of training')
 tf.flags.DEFINE_integer('save_every', 1000, 'How often (iterations) to save the current state of the model')
 
 
-with tf.Session() as sess:
+config = helpers.get_session_config()
+with tf.Session(config=config) as sess:
     # Init
     vocab = Vocab()
+    k = math.sqrt(FLAGS.kk)
 
     # Initialize placeholders
-    candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[FLAGS.n * 5])
+    candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[None, FLAGS.n * 5])
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
     image_name_ph = tf.placeholder(dtype=tf.string)
     labels_ph = tf.placeholder(tf.int32, shape=(None, FLAGS.state_size))
     learning_rate_ph = tf.placeholder(dtype=tf.float32, shape=[1])
-    image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, 7, 7, 4096])
+    image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), 7, 7, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
     seq_len_ph = tf.placeholder(dtype=tf.int32, shape=[None, ])

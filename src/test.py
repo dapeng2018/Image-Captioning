@@ -6,6 +6,8 @@
 import logging
 import helpers
 import itertools
+import math
+import numpy as np
 import os
 import stv.configuration as stv_configuration
 import tensorflow as tf
@@ -31,18 +33,21 @@ if not FLAGS.input or not FLAGS.model_path:
     exit(1)
 
 
-with tf.Session() as sess:
+config = helpers.get_session_config()
+with tf.Session(config=config) as sess:
     # Init
     vocab = Vocab()
     input_path = os.path.abspath(FLAGS.input)
     input_image = helpers.load_image_to(input_path, height=512, width=512)
+    input_image = np.reshape(input_image, [1, 512, 512, 3])
+    k = math.sqrt(FLAGS.kk)
 
     # Initialize placeholders
-    candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[FLAGS.n * 5])
+    candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[1, FLAGS.n * 5])
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
-    image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[1, 7, 7, 4096])
-    image_ph = tf.placeholder(dtype=tf.float32, shape=[1, FLAGS.train_height, FLAGS.train_width, 3])
-    training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), 7, 7, 4096])
+    image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
+    image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
+    training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
 
     # Initialize auxiliary
@@ -67,7 +72,7 @@ with tf.Session() as sess:
     all_examples, all_filenames = tf.train.batch([example_image, example_filename],
                                                  helpers.get_training_size(),
                                                  num_threads=8,
-                                                 capacity=10000)
+                                                 capacity=100)
 
     # Initialize session and begin threads
     sess.run(tf.global_variables_initializer())
@@ -78,8 +83,8 @@ with tf.Session() as sess:
 
     # Restore previously trained model
     saved_path = os.path.abspath(FLAGS.model_path)
-    saver = tf.train.Saver()
-    saver.restore(sess, saved_path)
+    #saver = tf.train.Saver()
+    #saver.restore(sess, saved_path)
 
     # Get nearest neighbor images to get list of candidate captions
     all_examples_eval = all_examples.eval()
@@ -91,25 +96,27 @@ with tf.Session() as sess:
         image_fc_encoding_ph: input_fc_encoding,
         training_fc_encodings_ph: training_fc_encodings,
         training_filenames_ph: all_filenames_eval}
-    nearest_neighbors = neighbor.nearest.eval(feed_dict=neighbor_dict)
+    nearest_neighbors = neighbor.nearest.eval(feed_dict=neighbor_dict)[0]
 
+    # Get candidate captions
     extractor = CaptionExtractor(candidate_captions_ph)
-    candidate_captions = [extractor.captions[filename] for filename in nearest_neighbors]
+    candidate_captions = [extractor.captions[os.path.basename(filename.decode('UTF-8'))]
+                          for filename in nearest_neighbors]
     candidate_captions = list(itertools.chain(*candidate_captions))
 
     # Extract guidance caption as the top CIDEr scoring sentence
-    guidance_caption = extractor.guidance_caption_test.eval(
-        feed_dict={candidate_captions_ph: candidate_captions})
+    guidance_caption = extractor.get_guidance_caption(candidate_captions, inference=True)
 
     # Compute context vector using the guidance caption and image encodings
     tokenized_caption = extractor.tokenize_sentence(guidance_caption)
     guidance_caption_encoding = stv.encode(tokenized_caption, batch_size=1)
-
     context_vector = tatt.context_vector
 
     # Decode caption
-    logits = decoder.logits
-    caption = decoder.get_caption(vocab, logits)
+    words = decoder.get_caption(vocab)
+    feed_dict = {caption_encoding_ph: guidance_caption_encoding, image_ph: input_image}
+    word_list = words.eval(feed_dict=feed_dict)
+    caption = ' '.join(word_list)
     print(caption)
 
     # Stop threads and close the tensorflow sessions

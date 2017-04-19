@@ -15,6 +15,8 @@ import skimage.transform
 import sys
 from vgg.fcn16_vgg import FCN16VGG as Vgg16
 
+FLAGS = tf.flags.FLAGS
+
 
 def config_logging(env='training'):
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
@@ -57,8 +59,9 @@ def get_captions_path(train=True):
 
 
 def get_cosine_similarity(a, b):
-    a = tf.reshape(a, shape=[-1, 7 * 7 * 4096])
-    b = tf.reshape(b, shape=[-1, 7 * 7 * 4096])
+    shape = [-1, FLAGS.kk * 4096]
+    a = tf.reshape(a, shape=shape)
+    b = tf.reshape(b, shape=shape)
 
     a_norm = get_l2_norm(a)
     b_norm = get_l2_norm(b)
@@ -92,6 +95,11 @@ def get_fc7_filenames():
     image_path = get_lib_path() + image_filename
     filenames = np.load(image_path)
     return filenames
+
+
+def get_session_config():
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    return tf.ConfigProto(log_device_placement=True, gpu_options=gpu_options)
 
 
 def get_l2_norm(t):
@@ -168,7 +176,7 @@ def load_image_to(path, height=None, width=None):
 
 def next_example(height, width):
     # Ops for getting training images, from retrieving the filenames to reading the data
-    regex = get_training_path() + '/*.jpg'
+    regex = get_training_path() + '*.jpg'
     filenames = tf.train.match_filenames_once(regex)
     filename_queue = tf.train.string_input_producer(filenames)
     reader = tf.WholeFileReader()

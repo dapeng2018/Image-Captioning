@@ -8,6 +8,7 @@ import helpers
 import json
 import logging
 import nltk
+import numpy as np
 import random
 import tensorflow as tf
 from sklearn.feature_extraction.text import CountVectorizer
@@ -37,27 +38,33 @@ class CaptionExtractor:
             helpers.save_obj(self.gram_frequencies, 'gram_frequencies')
             helpers.save_obj(self.captions, 'captions')
 
-        hyps, refs = {}, {}
-
-        """""
-        for i, caption in candidate_captions:
-            hyps[i] = caption
-            refs[i] = []
-            for reference in candidate_captions:
-                refs[i].append(reference)
-
-        score, scores = Cider.compute_score(hyps, refs)
-        index = 0
-        """
-
         self.guidance_caption_train = candidate_captions[random.randint(0, FLAGS.k)]
-        #self.guidance_caption_test = candidate_captions[index]
 
     @staticmethod
     def get_annotations(path=helpers.get_captions_path()):
         with open(path) as data_file:
             data = json.load(data_file)
             return data['annotations'], data['images']
+
+    def get_guidance_caption(self, candidate_captions, inference=False):
+        gts, res = {}, {}
+
+        for i, caption in enumerate(candidate_captions):
+            res[i] = self.tokenize_sentence(caption)
+            gts[i] = [self.tokenize_sentence(reference)
+                      for reference in (set(candidate_captions) - set([caption]))]
+
+        score, scores = self.cider.compute_score(gts, res)
+
+        if inference:
+            # Select the highest scoring caption
+            index = scores.index(max(scores))
+            return candidate_captions[index]
+        else:
+            # Select a random caption from the top k
+            indices = np.argpartition(candidate_captions, -FLAGS.k)[-FLAGS.k:]
+            top_captions = candidate_captions[indices]
+            return top_captions[random.randint(FLAGS.k - 1)]
 
     def make_caption_representation(self, filename, image_id, annotation):
         if annotation['image_id'] == image_id:
