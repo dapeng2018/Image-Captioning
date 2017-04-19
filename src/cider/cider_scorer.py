@@ -14,6 +14,7 @@ def precook(s, n=4, out=False):
     Takes a string as input and returns an object that can be given to
     either cook_refs or cook_test. This is optional: cook_refs and cook_test
     can take string arguments as well.
+
     :param s: string : sentence to be converted into ngrams
     :param n: int    : number of ngrams for which representation is calculated
     :return: term frequency vector for occuring ngrams
@@ -24,27 +25,34 @@ def precook(s, n=4, out=False):
         for i in range(len(words)-k+1):
             ngram = tuple(words[i:i+k])
             counts[ngram] += 1
+
     return counts
 
 
 def cook_refs(refs, n=4): ## lhuang: oracle will call with "average"
-    '''Takes a list of reference sentences for a single segment
+    """
+    Takes a list of reference sentences for a single segment
     and returns an object that encapsulates everything that BLEU
     needs to know about them.
+
     :param refs: list of string : reference sentences for some image
     :param n: int : number of ngrams for which (ngram) representation is calculated
     :return: result (list of dict)
-    '''
+    """
+
     return [precook(ref, n) for ref in refs]
 
 
 def cook_test(test, n=4):
-    '''Takes a test sentence and returns an object that
+    """
+    Takes a test sentence and returns an object that
     encapsulates everything that BLEU needs to know about it.
+
     :param test: list of string : hypothesis sentence for some image
     :param n: int : number of ngrams for which (ngram) representation is calculated
     :return: result (dict)
-    '''
+    """
+
     return precook(test, n, True)
 
 

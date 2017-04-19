@@ -2,6 +2,29 @@
 
 ..work in progress
 
+#### Implementation Architecture
+
+Given some image as input, an image and caption encoding are computed through two independent intermediary models.
+
+For the image encoding, the final fully connected layer of a pretrained VGG network of the 16 layer variety is used. 
+This model has been specifically fine-tuned to predict image attributes.
+
+For the caption encoding, the last hidden state (GRU) of a pretrained STV model is used.
+The input caption fed into this RNN is chosen through an intricate caption extraction process.
+From the input image, a set of candidate captions are initially retrieved based on the top *n* visually similar images.
+The top *k* candidates are filtered from the list based on computed [CIDEr](https://arxiv.org/pdf/1411.5726.pdf) scores.
+While the top caption is simply chosen during inference, a random caption is chosen from these top captions during training to prevent overfitting.
+As mentioned prior, this selected captionc alled the guidance caption is fed into the STV and encoded.
+
+A text-guided attention model then takes as input the image and caption encodings. 
+It computes a context vector through an attention mechanism by "attending" different parts (filter maps) of the image encoding at each feature representation of the caption encoding.
+
+Finally, a decoder takes the context vector as input and generates a caption.
+It is comprised of a word embedding, LSTM, and prediction layer.
+The context vector is first mapped onto a word vector and is used as the initial word.
+A new word is predicted at each time step until "<eos>" is reached.
+Dropout is used on the output layer of the decoder.
+
 ## Prerequisites
 
 * [NLTK](http://www.nltk.org/)
@@ -12,9 +35,15 @@
 
 ## Usage
 
+To generative a caption for a given image, invoke *[test.py](./src/test.py)* with its file path through --input and specify a trained model through --model_path (i.e., "model.ckpt").
+
 ```
-python3 test.py 'path/to/input/image' 'path/to/trained/model'
+python3 test.py 'path/to/input/image' 'path/to/trained/model.ckpt'
 ```
+
+To train a new generative model to caption images invoke *[train.py](./src/train.py)* without supplying additional flags. 
+Checkpoints will be generated on occasion during the training session under [lib/models](.lib/models) prefixed with a timestamp for a name.
+On completion, a final model will be saved under the same directory but with the additional prefix "trained" before the timestamp.
 
 ```
 python3 train.py
@@ -33,16 +62,12 @@ python3 train.py
 * [cider.py](./src/cider/cider.py)
 
     Describes the class to compute the CIDEr (Consensus-Based Image Description Evaluation) Metric 
-    
     - by Vedantam, Zitnick, and Parikh (http://arxiv.org/abs/1411.5726)
-
 
 * [cider_scorer.py](./src/cider/cider_scorer.py)
 
     Contains the actual methods for computing the cider score.
-    
     - by Vedantam, Zitnick, and Parikh
-
 
 * [configuration.py](./src/stv/configuration.py)
 
@@ -55,6 +80,7 @@ python3 train.py
 
 * [encoder_manager.py](./src/stv/encoder_manager.py)
 
+    Management class in charge of the STV model encoder.
     - by TensorFlow Authors
 
 * [fcn16_vgg.py](./src/vgg/fcn16_vgg.py)
@@ -63,6 +89,7 @@ python3 train.py
 
 * [gru_cell.py](./src/stv/gru_cell.py)
 
+    Custom GRU cell modified for the STV model.
     - by TensorFlow Authors
 
 * [helpers.py](./src/helpers.py)
@@ -71,6 +98,7 @@ python3 train.py
 
 * [input_ops.py](./src/stv/input_ops.py)
 
+    Contains TensorFlow operations used by the STV model.
     - by TensorFlow Authors
  
 * [neighbor.py](./src/neighbor.py)
@@ -83,14 +111,17 @@ python3 train.py
 
 * [special_words.py](./src/stv/special_words.py)
 
+    Script declaring special tokens used by the STV model as python variables.
     - by TensorFlow Authors
 
 * [skip_thoughts_encoder.py](./src/stv/skip_thoughts_encoder.py)
 
+    Encoder portion of the Skip-Thought Vector model used to encode the guidance caption.
     - by TensorFlow Authors
 
 * [skip_thoughts_model.py](./src/stv/skip_thoughts_model.py)
- 
+
+    Skip-Thought vector model (pretrained) based on the [paper.](https://arxiv.org/abs/1506.06726)
     - by TensorFlow Authors
  
 * [test.py](./src/test.py)
