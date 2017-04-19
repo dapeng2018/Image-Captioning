@@ -12,17 +12,12 @@ import time
 import skimage
 import skimage.io
 import skimage.transform
+import sys
 from vgg.fcn16_vgg import FCN16VGG as Vgg16
 
 
 def config_logging(env='training'):
-    log_dir = get_logs_path()
-    if not os.path.isdir(log_dir):
-        os.makedirs(log_dir)
-        print('Directory "%s" was created for logging.' % log_dir)
-    log_path = ''.join([log_dir, env, str(time.time()), '.log'])
-    logging.basicConfig(filename=log_path, level=logging.INFO)
-    print("Printing log to %s" % log_path)
+    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
 
 def config_model_flags():

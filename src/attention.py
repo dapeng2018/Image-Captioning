@@ -1,6 +1,6 @@
 """
     Author: Mohamed K. Eid (mohamedkeid@gmail.com)
-    Description:
+    Description: Class responsible for text-guided attention.
 """
 
 import logging
@@ -11,7 +11,7 @@ FLAGS = tf.flags.FLAGS
 
 class Attention:
     def __init__(self, image_encoding, caption_encoding):
-        print("New 'Attention' instance has been initialized.")
+        logging.info("New 'Attention' instance has been initialized.")
 
         with tf.variable_scope('attention'):
             # Image feature ops
@@ -35,7 +35,5 @@ class Attention:
             c_attention = tf.reshape(c_attention, shape=[-1, FLAGS.kk])
 
             # Context ops
-            activation = tf.nn.softmax(c_attention)
-            alpha = tf.reshape(activation, shape=[-1])
-            alpha = tf.expand_dims(alpha, dim=1)
-            self.context_vector = image_encoding * alpha
+            alphas = tf.nn.softmax(c_attention)
+            self.context_vector = tf.matmul(alphas, image_encoding)

@@ -5,9 +5,11 @@
 
 import logging
 import helpers
+import itertools
 import os
 import stv.configuration as stv_configuration
 import tensorflow as tf
+import time
 from attention import Attention
 from caption_extractor import CaptionExtractor
 from decoder import Decoder
@@ -18,19 +20,26 @@ from vocab import Vocab
 
 
 FLAGS = tf.flags.FLAGS
+tf.flags.DEFINE_integer('batch_size', 1, '')
 tf.flags.DEFINE_string('input', None, '')
 tf.flags.DEFINE_string('model_path', None, '')
 helpers.config_model_flags()
 helpers.config_logging(env='testing')
 
+if not FLAGS.input or not FLAGS.model_path:
+    logging.error('You did not provide an input image path and model path.')
+    exit(1)
 
-with tf.Session as sess:
+
+with tf.Session() as sess:
     # Init
     vocab = Vocab()
+    input_path = os.path.abspath(FLAGS.input)
+    input_image = helpers.load_image_to(input_path, height=512, width=512)
 
     # Initialize placeholders
     candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[FLAGS.n * 5])
-    caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[1, FLAGS.stv_size])
+    caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[1, 7, 7, 4096])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[1, FLAGS.train_height, FLAGS.train_width, 3])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), 7, 7, 4096])
@@ -45,25 +54,68 @@ with tf.Session as sess:
     stv_uni_config = stv_configuration.model_config()
     stv.load_model(stv_uni_config, FLAGS.stv_vocab_file, FLAGS.stv_embeddings_file, FLAGS.stv_checkpoint_path)
 
-    # Initialize encoders
+    # Initialize models
     vgg = Vgg16()
     vgg.build(image_ph, image_shape[1:])
     conv_encoding = vgg.pool5
     fc_encoding = vgg.fc7
-    extractor = CaptionExtractor(candidate_captions_ph)
-
-    # Attention model and decoder
     tatt = Attention(conv_encoding, caption_encoding_ph)
     decoder = Decoder(tatt.context_vector)
 
-    # Initialize sessuib and restore previously trained model
+    # Retrieve training images for caption extraction
+    example_image, example_filename = helpers.next_example(height=FLAGS.train_height, width=FLAGS.train_width)
+    all_examples, all_filenames = tf.train.batch([example_image, example_filename],
+                                                 helpers.get_training_size(),
+                                                 num_threads=8,
+                                                 capacity=10000)
+
+    # Initialize session and begin threads
     sess.run(tf.global_variables_initializer())
+    logging.info("Begining training..")
+    coord = tf.train.Coordinator()
+    threads = tf.train.start_queue_runners(coord=coord)
+    start_time = time.time()
+
+    # Restore previously trained model
     saved_path = os.path.abspath(FLAGS.model_path)
     saver = tf.train.Saver()
     saver.restore(sess, saved_path)
 
-    # Generate caption
+    # Get nearest neighbor images to get list of candidate captions
+    all_examples_eval = all_examples.eval()
+    all_filenames_eval = all_filenames.eval()
+    input_fc_encoding = fc_encoding.eval(feed_dict={image_ph: input_image})
+    training_fc_encodings = fc_encoding.eval(feed_dict={image_ph: all_examples_eval})
 
+    neighbor_dict = {
+        image_fc_encoding_ph: input_fc_encoding,
+        training_fc_encodings_ph: training_fc_encodings,
+        training_filenames_ph: all_filenames_eval}
+    nearest_neighbors = neighbor.nearest.eval(feed_dict=neighbor_dict)
+
+    extractor = CaptionExtractor(candidate_captions_ph)
+    candidate_captions = [extractor.captions[filename] for filename in nearest_neighbors]
+    candidate_captions = list(itertools.chain(*candidate_captions))
+
+    # Extract guidance caption as the top CIDEr scoring sentence
+    guidance_caption = extractor.guidance_caption_test.eval(
+        feed_dict={candidate_captions_ph: candidate_captions})
+
+    # Compute context vector using the guidance caption and image encodings
+    tokenized_caption = extractor.tokenize_sentence(guidance_caption)
+    guidance_caption_encoding = stv.encode(tokenized_caption, batch_size=1)
+
+    context_vector = tatt.context_vector
+
+    # Decode caption
+    logits = decoder.logits
+    caption = decoder.get_caption(vocab, logits)
+    print(caption)
+
+    # Stop threads and close the tensorflow sessions
+    coord.request_stop()
+    coord.join(threads)
+    stv.close()
     sess.close()
 
 exit(0)

@@ -43,7 +43,7 @@ with tf.Session() as sess:
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
     image_name_ph = tf.placeholder(dtype=tf.string)
-    label_ph = tf.placeholder(tf.int32, shape=(None, FLAGS.vocab_size))
+    labels_ph = tf.placeholder(tf.int32, shape=(None, FLAGS.state_size))
     learning_rate_ph = tf.placeholder(dtype=tf.float32, shape=[1])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, 7, 7, 4096])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), 7, 7, 4096])
@@ -69,10 +69,15 @@ with tf.Session() as sess:
 
     # Attention model and decoder
     tatt = Attention(conv_encoding, caption_encoding_ph)
-    decoder = Decoder(tatt.context_vector, label_ph)
+    decoder = Decoder(tatt.context_vector)
+    logits = decoder.logits
 
-    # Loss op
-    loss = decoder.total_loss
+    # Loss ops
+    targets_one_hot = tf.one_hot(indices=labels_ph, depth=FLAGS.vocab_size, axis=1, dtype=tf.int32)
+    targets = tf.unstack(targets_one_hot, axis=1)
+    losses = [tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target, logits=logits)
+              for logit, target in zip(logits, targets)]
+    loss = tf.reduce_mean(losses)
 
     # Optimization ops
     with tf.name_scope('optimization'):
@@ -100,7 +105,7 @@ with tf.Session() as sess:
     all_examples, all_filenames = tf.train.batch([example_image, example_filename],
                                                  helpers.get_training_size(),
                                                  num_threads=8,
-                                                 capacity=capacity)
+                                                 capacity=10000)
 
     all_examples_eval = all_examples.eval()
     all_filenames_eval = all_filenames.eval()
@@ -145,8 +150,10 @@ with tf.Session() as sess:
     coord.request_stop()
     coord.join(threads)
 
-    # Save the trained model and close the tensorflow sessions
+    # Save the trained model and close the tensorflow threads/sessions
     helpers.save_model(saver, helpers.get_new_model_path)
+    coord.request_stop()
+    coord.join(threads)
     stv.close()
     sess.close()
 
