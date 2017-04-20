@@ -28,6 +28,7 @@ def config_model_flags():
     tf.flags.DEFINE_integer('embedding_size', 512, 'Max length of the embedding space')
     tf.flags.DEFINE_integer('k', 10, 'Number of consensus captions to retrieve')
     tf.flags.DEFINE_integer('kk', 16 * 16, 'Filter map size (height * width) of the vgg image encoding')
+    tf.flags.DEFINE_integer('max_caption_size', 30, 'Maximum number of words for caption if <eos> is not reached')
     tf.flags.DEFINE_integer('n', 60, 'Number of nearest neighbors to retrieve')
     tf.flags.DEFINE_integer('ngrams', 4, 'Number of grams (up-to) for candidate caption scoring')
     tf.flags.DEFINE_float('sched_rate', .75, 'Selection probability for scheduled sampling')

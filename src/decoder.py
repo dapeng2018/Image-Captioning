@@ -29,7 +29,7 @@ class Decoder:
             lstm = tf.contrib.rnn.BasicLSTMCell(FLAGS.embedding_size, state_is_tuple=True)
             state = lstm.zero_state(FLAGS.batch_size, dtype=tf.float32)
 
-            for i in range(FLAGS.state_size - 1):
+            for i in range(FLAGS.max_caption_size - 1):
                 w = self.logits[-1]
                 x = tf.matmul(w, self.word_embeddings)
                 output, state = lstm(x, state)
@@ -45,6 +45,22 @@ class Decoder:
 
     def get_caption(self, vocab):
         caption = tf.convert_to_tensor(self.logits)
+        caption = tf.reshape(caption, [FLAGS.max_caption_size, -1])
+
         max_indices = tf.argmax(caption, axis=1)
+        max_indices = tf.reshape(max_indices, [-1])
         words = tf.gather(vocab.list, max_indices)
+
         return words
+
+    @staticmethod
+    def make_readable(word_list):
+        # Decode words
+        word_list = [word.decode('UTF-8') for word in word_list.tolist()]
+
+        # Get words up to <eos>
+        if '<eos>' in word_list:
+            eos_index = word_list.index('<eos>')
+            word_list = word_list[:eos_index]
+
+        return ' '.join(word_list)

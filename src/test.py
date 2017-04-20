@@ -72,7 +72,7 @@ with tf.Session(config=config) as sess:
     all_examples, all_filenames = tf.train.batch([example_image, example_filename],
                                                  helpers.get_training_size(),
                                                  num_threads=8,
-                                                 capacity=100)
+                                                 capacity=10000)
 
     # Initialize session and begin threads
     sess.run(tf.global_variables_initializer())
@@ -83,8 +83,8 @@ with tf.Session(config=config) as sess:
 
     # Restore previously trained model
     saved_path = os.path.abspath(FLAGS.model_path)
-    #saver = tf.train.Saver()
-    #saver.restore(sess, saved_path)
+    saver = tf.train.Saver()
+    saver.restore(sess, saved_path)
 
     # Get nearest neighbor images to get list of candidate captions
     all_examples_eval = all_examples.eval()
@@ -112,8 +112,7 @@ with tf.Session(config=config) as sess:
     words = decoder.get_caption(vocab)
     feed_dict = {caption_encoding_ph: guidance_caption_encoding, image_ph: input_image}
     word_list = words.eval(feed_dict=feed_dict)
-    caption = ' '.join(word_list)
-    print(caption)
+    print("OUTPUT: %s" % decoder.make_readable(word_list))
 
     # Stop threads and close the tensorflow sessions
     coord.request_stop()

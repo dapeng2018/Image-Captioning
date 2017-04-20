@@ -49,7 +49,7 @@ with tf.Session(config=config) as sess:
     labels_ph = tf.placeholder(tf.int32, shape=(None, FLAGS.state_size))
     learning_rate_ph = tf.placeholder(dtype=tf.float32, shape=[1])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
-    training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), 7, 7, 4096])
+    training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), k, k, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
     seq_len_ph = tf.placeholder(dtype=tf.int32, shape=[None, ])
 
