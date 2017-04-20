@@ -131,7 +131,7 @@ class CiderScorer(object):
             vec = [defaultdict(float) for _ in range(self.n)]
             length = 0
             norm = [0.0 for _ in range(self.n)]
-            for (ngram,term_freq) in cnts.items():
+            for (ngram, term_freq) in cnts.items():
                 # give word count 1 if it doesn't appear in reference corpus
                 df = np.log(max(1.0, self.document_frequency[ngram]))
                 # ngram index

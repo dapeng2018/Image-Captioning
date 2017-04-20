@@ -23,17 +23,16 @@ class Attention:
             c_image = tf.nn.bias_add(c_image, b_image)
 
             # Caption feature ops
-            w_caption_init = tf.random_uniform([FLAGS.stv_size, FLAGS.embedding_size], -1., 1.)
+            w_caption_init = tf.random_uniform([FLAGS.stv_size, FLAGS.conv_size], -1., 1.)
             w_caption = tf.Variable(w_caption_init)
             c_caption = tf.matmul(caption_encoding, w_caption)
-            c_caption = tf.tile(c_caption, tf.constant([FLAGS.kk, 1]))
 
             # Weighted attention ops
-            w_attention = tf.Variable(tf.random_uniform([FLAGS.embedding_size, 1]))
+            w_attention = tf.Variable(tf.random_uniform([FLAGS.conv_size, FLAGS.conv_size], -1., 1.))
             t_attention = tf.nn.tanh(c_image + c_caption)
             c_attention = tf.matmul(t_attention, w_attention)
-            c_attention = tf.reshape(c_attention, shape=[-1, FLAGS.kk])
 
             # Context ops
             alphas = tf.nn.softmax(c_attention)
-            self.context_vector = tf.matmul(alphas, image_encoding)
+            context = alphas * image_encoding
+            self.context_vector = context

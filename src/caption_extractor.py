@@ -41,8 +41,12 @@ class CaptionExtractor:
             helpers.save_obj(self.captions, 'captions')
 
     @staticmethod
-    def clean_sentence(a):
-        return re.sub(r'[^\w\s]', '', a)
+    def clean_sentence(sentence):
+        return re.sub(r'[^\w\s]', '', sentence)
+
+    @staticmethod
+    def extend_to_len(x, n=512):
+        x.extend(['' for _ in range(n - len(x))])
 
     @staticmethod
     def get_annotations(path=helpers.get_captions_path()):
@@ -71,21 +75,22 @@ class CaptionExtractor:
         # Update batch guidance caption list given an example's candidate captions
         def update_guidance_caption(extractor, neighbors, index):
             # Filter full captions list to get captions relevant to our neighbors
+            neighbors = [os.path.basename(neighbor.decode('UTF-8'))
+                         for neighbor in neighbors]
             captions = {k: v for k, v in extractor.captions.items() if k in neighbors}
 
-            # Stem words in our captions
-            gts = {}
-            for image, captions in captions:
-                gts[image] = [stem(extractor, caption) for caption in captions]
-
-            candidates = [list(itertools.chain(*captions)) for captions in gts.values()]
+            # Flatten candidate captions into one list and stem all their words
+            candidates = list(itertools.chain(*captions.values()))
             candidates = [stem(extractor, candidate) for candidate in candidates]
 
-            # Dictionary with key <image> and value <tokenized reference sentence>
-            res = {example_index: [caption] for example_index, caption in enumerate(candidates)}
+            # Compute CIDEr scores
+            hyp = {hyp_index: candidates
+                   for hyp_index in range(len(candidates))}
+            ref = {ref_index: [candidate]
+                   for ref_index, candidate in enumerate(candidates)}
 
-            score, scores = extractor.cider.compute_score(gts, res)
-            print(score)
+            score, scores = extractor.cider.compute_score(hyp, ref)
+            scores = list(scores)
 
             if inference:
                 # Select the highest scoring caption
@@ -93,12 +98,14 @@ class CaptionExtractor:
                 guidance = candidates[score_index]
             else:
                 # Select a random caption from the top k to prevent overfitting during learning
-                indices = np.argpartition(candidates, -FLAGS.k)[-FLAGS.k:]
+                indices = np.argpartition(scores, -FLAGS.k)[-FLAGS.k:]
                 top_captions = candidates[indices]
                 guidance = top_captions[random.randint(FLAGS.k - 1)]
 
             with lock:
                 guidance_caption[index] = guidance
+
+            return
 
         # Iterate through each example's candidate captions and select the appropriate guidance caption
         threads = []
@@ -133,9 +140,14 @@ class CaptionExtractor:
     def tokenize_sentence(self, sentence):
         return [self.stem_word(word) for word in nltk.word_tokenize(sentence)]
 
-    def tokenize_sentences(self, sentences):
+    def tokenize_sentences(self, sentences, extend=False):
         tokenized_sentences = []
+
         for sentence in sentences:
             ts = self.tokenize_sentence(sentence)
+            if extend:
+                self.extend_to_len(ts, FLAGS.state_size)
+
             tokenized_sentences.append(ts)
+
         return tokenized_sentences

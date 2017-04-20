@@ -24,7 +24,7 @@ class Cider:
     def compute_score(self, gts, res):
         """
         Main function to compute CIDEr score
-        :param  hypo_for_image (dict) : dictionary with key <image> and value <tokenized hypothesis / candidate sentence>
+        :param  hypo_for_image (dict) : dictionary with key <image> and value <tokenized candidate sentence>
                 ref_for_image (dict)  : dictionary with key <image> and value <tokenized reference sentence>
         :return: cider (float) : computed CIDEr score for the corpus 
         """
