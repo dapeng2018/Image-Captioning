@@ -43,7 +43,7 @@ with tf.Session(config=config) as sess:
     k = math.sqrt(FLAGS.kk)
 
     # Initialize placeholders
-    candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[1, FLAGS.n * 5])
+    candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[None, FLAGS.n * 5])
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])

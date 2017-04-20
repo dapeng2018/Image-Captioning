@@ -35,4 +35,6 @@ class Attention:
             # Context ops
             alphas = tf.nn.softmax(c_attention)
             context = alphas * image_encoding
+            context = tf.reshape(context, [-1, FLAGS.conv_size, FLAGS.kk])
+            context = tf.reduce_sum(context, axis=2)
             self.context_vector = context
