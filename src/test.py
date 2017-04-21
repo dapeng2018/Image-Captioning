@@ -88,12 +88,13 @@ with tf.Session(config=config) as sess:
     saver = tf.train.Saver()
     #saver.restore(sess, saved_path)
 
-    # Get nearest neighbor images to get list of candidate captions
+    # Evaluate training images and imag encodings
     all_examples_eval = all_examples.eval()
     all_filenames_eval = all_filenames.eval()
     input_fc_encoding = fc_encoding.eval(feed_dict={image_ph: input_image})
     training_fc_encodings = fc_encoding.eval(feed_dict={image_ph: all_examples_eval})
 
+    # Get nearest neighbor images to get list of candidate captions
     neighbor_dict = {
         image_fc_encoding_ph: input_fc_encoding,
         training_fc_encodings_ph: training_fc_encodings,
@@ -104,26 +105,27 @@ with tf.Session(config=config) as sess:
     extractor = CaptionExtractor()
 
     # Extract guidance caption as the top CIDEr scoring sentence
-    guidance_captions = extractor.get_guidance_caption(nearest_neighbors, inference=True)
+    guidance_captions = extractor.get_guidance_caption(nearest_neighbors, inference=False)
 
     # Compute context vector using the guidance caption and image encodings
     guidance_caption_encoding = stv.encode(guidance_captions, batch_size=1, use_eos=True)
     context_vector = tatt.context_vector
 
-    # Decode caption
+    # Set up ops and vars for decoding the caption
     input_conv_encoding = conv_encoding.eval(feed_dict={image_ph: input_image})
+    predicted_index = tf.argmax(decoder.output, axis=1)
+    predicted_word = tf.gather(vocab.list, predicted_index)
+
     rnn_inputs = vocab.get_bos_rnn_input()
+    feed_dict = {caption_encoding_ph: guidance_caption_encoding,
+                 image_conv_encoding_ph: input_conv_encoding,
+                 rnn_inputs_ph: np.array(rnn_inputs)}
+
+    # Decode caption
     caption = []
 
     for _ in range(FLAGS.max_caption_size):
-        # Transcribe the predicted word form the decoder prediction
-        predicted_index = tf.argmax(decoder.output, axis=1)
-        predicted_word = vocab.get_word_from_index(predicted_index)
-
-        # Evaludate the literal string
-        feed_dict = {caption_encoding_ph: guidance_caption_encoding,
-                     image_conv_encoding_ph: input_conv_encoding,
-                     rnn_inputs_ph: np.array(rnn_inputs)}
+        # Evaludate the literal string from the prediction
         word, word_index = sess.run([predicted_word, predicted_index], feed_dict=feed_dict)
 
         # Since this is not for a batch, get the first elements
@@ -141,7 +143,9 @@ with tf.Session(config=config) as sess:
         predicted_1hot = helpers.index_to_1hot(word_index)
         predicted_1hot = [[predicted_1hot]]
         rnn_inputs = np.concatenate((rnn_inputs, predicted_1hot), axis=1)
+        feed_dict[rnn_inputs_ph] = np.array(rnn_inputs)
 
+    # Convert caption array into string and print it
     caption = ' '.join(caption)
     logging.info("OUTPUT: %s" % caption)
 

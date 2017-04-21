@@ -98,8 +98,8 @@ class CaptionExtractor:
             else:
                 # Select a random caption from the top k to prevent overfitting during learning
                 indices = np.argpartition(scores, -FLAGS.k)[-FLAGS.k:]
-                top_captions = candidates[indices]
-                guidance = top_captions[random.randint(FLAGS.k - 1)]
+                top_captions = [candidates[top_index] for top_index in indices]
+                guidance = top_captions[random.randint(0, FLAGS.k - 1)]
 
             with lock:
                 guidance_caption[index] = guidance

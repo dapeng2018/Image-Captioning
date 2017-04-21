@@ -53,9 +53,6 @@ class Vocab:
         else:
             return -1
 
-    def get_word_from_index(self, index):
-        return tf.gather(self.list, index)
-
     # Given a list of words, return their indices in the corpus
     def get_word_ids(self, words):
         def get_id(x, y):
