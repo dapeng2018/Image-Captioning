@@ -24,7 +24,7 @@ helpers.config_model_flags()
 helpers.config_logging(env='training')
 
 # Optimization flags
-tf.flags.DEFINE_integer('batch_size', 80, 'Mini-Batch size of images')
+tf.flags.DEFINE_integer('batch_size', 16, 'Mini-Batch size of images')
 tf.flags.DEFINE_integer('epochs', 100, 'Number of training iterations')
 tf.flags.DEFINE_float('learning_rate', 4e-4, 'Optimizer learning rate')
 tf.flags.DEFINE_float('learning_rate_dec_factor', .8, 'Factor in which the learning rate decreases')
@@ -34,7 +34,7 @@ tf.flags.DEFINE_integer('learning_rate_dec_thresh', 10, 'Number of iterations be
 # Misc flags
 tf.flags.DEFINE_float('epsilon', 1e-8, 'Tiny value to for log parameters')
 tf.flags.DEFINE_integer('print_every', 100, 'How often (iterations) to log the current progress of training')
-tf.flags.DEFINE_integer('save_every', 1000, 'How often (iterations) to save the current state of the model')
+tf.flags.DEFINE_integer('save_every', 1, 'How often epochs) to save the current state of the model')
 
 
 config = helpers.get_session_config()
@@ -90,7 +90,7 @@ with tf.Session(config=config) as sess:
         optimizer = tf.train.AdamOptimizer(learning_rate_ph)
         model_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='to_train')
         model_grads = optimizer.compute_gradients(loss, model_vars)
-        update_step = optimizer.apply_gradients(model_grads)
+        #update_step = optimizer.apply_gradients(model_grads)
 
     # Training data ops
     example_image, example_filename = helpers.next_example(height=FLAGS.train_height, width=FLAGS.train_width)

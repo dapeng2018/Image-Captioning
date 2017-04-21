@@ -84,22 +84,12 @@ class CaptionExtractor:
 
             # Compute CIDEr scores
             total_scores = {}
-            cider_lock = Lock()
 
-            def update_scores(_c):
-                ref = {filename: [_c] for filename in captions.keys()}
-                score, _ = extractor.cider.compute_score(captions, ref)
-
-                with cider_lock:
-                    total_scores[_c] = score
-
-            cider_threads = []
             for c in candidates:
-                cider_thread = Thread(target=update_scores, args=(c, ))
-                cider_thread.start()
-                cider_threads.append(cider_thread)
+                ref = {filename: [c] for filename in captions.keys()}
+                score, _ = extractor.cider.compute_score(captions, ref)
+                total_scores[c] = score
 
-            [_cider_thread.join() for _cider_thread in cider_threads]
             scores = [value for value in total_scores.values()]
 
             if inference:

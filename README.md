@@ -58,48 +58,14 @@ python3 train.py
 * [caption_extractor.py](./src/caption_extractor.py)
 
     Class responsible extracting a guidance caption and other operations related to ETL of sentences.
-
-* [cider.py](./src/cider/cider.py)
-
-    Describes the class to compute the CIDEr (Consensus-Based Image Description Evaluation) Metric 
-    - by Vedantam, Zitnick, and Parikh (http://arxiv.org/abs/1411.5726)
-
-* [cider_scorer.py](./src/cider/cider_scorer.py)
-
-    Contains the actual methods for computing the cider score.
-    - by Vedantam, Zitnick, and Parikh
-
-* [configuration.py](./src/stv/configuration.py)
-
-    Default configuration for STV model architecture and training.
-    - by TensorFlow Authors
     
 * [decoder.py](./src/decoder.py)
 
     Class responsible for decoding a context vector into a predicted encoded caption.
 
-* [encoder_manager.py](./src/stv/encoder_manager.py)
-
-    Management class in charge of the STV model encoder.
-    - by TensorFlow Authors
-
-* [fcn16_vgg.py](./src/vgg/fcn16_vgg.py)
-
-    VGG network that is fine-tuned on the MS-COCO dataset to predict image attributes.
-
-* [gru_cell.py](./src/stv/gru_cell.py)
-
-    Custom GRU cell modified for the STV model.
-    - by TensorFlow Authors
-
 * [helpers.py](./src/helpers.py)
 
     Contains various auxiliary functions.
-
-* [input_ops.py](./src/stv/input_ops.py)
-
-    Contains TensorFlow operations used by the STV model.
-    - by TensorFlow Authors
  
 * [neighbor.py](./src/neighbor.py)
 
@@ -108,21 +74,6 @@ python3 train.py
 * [setup.sh](./bin/setup.sh) 
 
     Executable shell script for downloading, extrcating, and installing prerequisite files.
-
-* [special_words.py](./src/stv/special_words.py)
-
-    Script declaring special tokens used by the STV model as python variables.
-    - by TensorFlow Authors
-
-* [skip_thoughts_encoder.py](./src/stv/skip_thoughts_encoder.py)
-
-    Encoder portion of the Skip-Thought Vector model used to encode the guidance caption.
-    - by TensorFlow Authors
-
-* [skip_thoughts_model.py](./src/stv/skip_thoughts_model.py)
-
-    Skip-Thought vector model (pretrained) based on the [paper.](https://arxiv.org/abs/1506.06726)
-    - by TensorFlow Authors
  
 * [test.py](./src/test.py)
 
