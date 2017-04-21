@@ -63,59 +63,69 @@ class CaptionExtractor:
         :return: guidance caption for each example of shape [batch size, 1]
         """
 
-        guidance_caption = [None] * FLAGS.batch_size
+        with Manager() as manager:
+            guidance_caption = manager.list(range(FLAGS.batch_size))
 
-        def stem(extractor, caption):
-            caption = extractor.tokenize_sentence(caption)
-            caption = ' '.join(caption)
-            caption = extractor.clean_sentence(caption)
-            return caption
+            def stem(extractor, stemmer, caption):
+                caption = extractor.tokenize_sentence(stemmer, caption)
+                caption = ' '.join(caption)
+                caption = extractor.clean_sentence(caption)
+                return caption
 
-        # Iterate through each example's candidate captions and select the appropriate guidance caption
-        for index, neighbors in enumerate(nearest_neighbors):
-            # Filter full captions list to get captions relevant to our neighbors
-            neighbors = [os.path.basename(neighbor.decode('UTF-8')) for neighbor in neighbors]
-            captions = {k: v for k, v in self.captions.items() if k in neighbors}
+            # Iterate through each example's candidate captions and select the appropriate guidance caption
+            def get_example_guidance(neighbors, index):
+                stemmer = nltk.stem.WordNetLemmatizer()
 
-            # Flatten candidate captions into one list and stem all their words
-            candidates = list(itertools.chain(*captions.values()))
-            candidates = [stem(self, candidate) for candidate in candidates]
+                # Filter full captions list to get captions relevant to our neighbors
+                neighbors = [os.path.basename(neighbor.decode('UTF-8')) for neighbor in neighbors]
+                captions = {k: v for k, v in self.captions.items() if k in neighbors}
 
-            # Compute CIDEr scores through in parallel
-            with Manager() as manager:
-                total_scores = manager.dict()
-                threads = []
-                lock = Lock()
+                # Flatten candidate captions into one list and stem all their words
+                candidates = list(itertools.chain(*captions.values()))
+                candidates = [stem(self, stemmer, candidate) for candidate in candidates]
 
-                def update_scores(c):
-                    ref = {filename: [c] for filename in captions.keys()}
-                    score, _ = self.cider.compute_score(captions, ref)
+                # Compute CIDEr scores through in parallel
+                with Manager() as cider_manager:
+                    total_scores = cider_manager.dict()
+                    cider_threads = []
+                    cider_lock = Lock()
 
-                    with lock:
-                        total_scores[c] = score
+                    def update_scores(c):
+                        ref = {filename: [c] for filename in captions.keys()}
+                        score, _ = self.cider.compute_score(captions, ref)
 
-                for candidate in candidates:
-                    t = Process(target=update_scores, args=(candidate, ))
-                    t.start()
-                    threads.append(t)
+                        with cider_lock:
+                            total_scores[c] = score
 
-                [t.join() for t in threads]
-                scores = [value for value in total_scores.values()]
+                    for candidate in candidates:
+                        ct = Process(target=update_scores, args=(candidate, ))
+                        ct.start()
+                        cider_threads.append(ct)
 
-            if inference:
-                # Select the highest scoring caption
-                score_index = scores.index(max(scores))
-                guidance = candidates[score_index]
-            else:
-                # Select a random caption from the top k to prevent over-fitting during learning
-                k = FLAGS.k if len(scores) >= FLAGS.k else len(scores)
-                indices = np.argpartition(scores, -k)[-k:]
-                top_captions = [candidates[top_index] for top_index in indices]
-                guidance = top_captions[random.randint(0, k - 1)]
+                    [ct.join() for ct in cider_threads]
+                    scores = [value for value in total_scores.values()]
 
-            guidance_caption[index] = guidance
+                if inference:
+                    # Select the highest scoring caption
+                    score_index = scores.index(max(scores))
+                    guidance = candidates[score_index]
+                else:
+                    # Select a random caption from the top k to prevent over-fitting during learning
+                    k = FLAGS.k if len(scores) >= FLAGS.k else len(scores)
+                    indices = np.argpartition(scores, -k)[-k:]
+                    top_captions = [candidates[top_index] for top_index in indices]
+                    guidance = top_captions[random.randint(0, k - 1)]
 
-        return guidance_caption
+                guidance_caption[index] = guidance
+
+            threads = []
+            for i, n in enumerate(nearest_neighbors):
+                t = Process(target=get_example_guidance, args=(n, i, ))
+                t.start()
+                threads.append(t)
+
+            [t.join() for t in threads]
+            return list(guidance_caption)
 
     def make_caption_representations(self):
         """
@@ -134,11 +144,11 @@ class CaptionExtractor:
 
                     self.captions[filename].append(annotation['caption'])
 
-    def stem_word(self, word):
-        return self.stemmer.lemmatize(word.lower())
+    def stem_word(self, stemmer, word):
+        return stemmer.lemmatize(word.lower())
 
-    def tokenize_sentence(self, sentence):
-        return [self.stem_word(word) for word in nltk.word_tokenize(sentence)]
+    def tokenize_sentence(self, stemmer, sentence):
+        return [self.stem_word(stemmer, word) for word in nltk.word_tokenize(sentence)]
 
     def tokenize_sentences(self, sentences, extend=False):
         tokenized_sentences = []

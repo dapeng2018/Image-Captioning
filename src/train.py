@@ -22,7 +22,7 @@ from vocab import Vocab
 
 FLAGS = tf.flags.FLAGS
 helpers.config_model_flags()
-helpers.config_logging(env='training')
+helpers.config_logging()
 
 # Optimization flags
 tf.flags.DEFINE_integer('batch_size', 16, 'Mini-Batch size of images')
@@ -91,7 +91,7 @@ with tf.Session(config=config) as sess:
     sampled_index = decoder.sample()
 
     # Loss ops
-    loss = tf.nn.softmax_cross_entropy_with_logits(logits=decoder.output, labels=labels_ph)
+    loss = tf.nn.softmax_cross_entropy_with_logits(logits=tf.square(decoder.output), labels=labels_ph)
     loss = tf.reduce_mean(loss)
 
     # Optimization ops
@@ -150,7 +150,7 @@ with tf.Session(config=config) as sess:
 
             # Set up vars for update
             rnn_inputs = vocab.get_bos_rnn_input(FLAGS.batch_size)
-            rnn_word_labels = [vocab.add_bos_eos(extractor.tokenize_sentence(gc))
+            rnn_word_labels = [vocab.add_bos_eos(extractor.tokenize_sentence(extractor.stemmer, gc))
                                for gc in guidance_captions]
             rnn_1hot_labels = vocab.word_labels_to_1hot(rnn_word_labels)
 

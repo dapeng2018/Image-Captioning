@@ -86,7 +86,7 @@ with tf.Session(config=config) as sess:
     # Restore previously trained model
     saved_path = os.path.abspath(FLAGS.model_path)
     saver = tf.train.Saver()
-    #saver.restore(sess, saved_path)
+    saver.restore(sess, saved_path)
 
     # Evaluate training images and imag encodings
     all_examples_eval = all_examples.eval()

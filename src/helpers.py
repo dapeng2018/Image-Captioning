@@ -83,21 +83,6 @@ def get_data(name):
         return {}
 
 
-def get_fc7_encodings():
-    encoding_filename = 'fc7_encodings.pkl'
-    encoding_path = get_lib_path() + encoding_filename
-    encodings = np.load(encoding_path)
-
-    return encodings
-
-
-def get_fc7_filenames():
-    image_filename = 'fc7_filenames.pkl'
-    image_path = get_lib_path() + image_filename
-    filenames = np.load(image_path)
-    return filenames
-
-
 def get_session_config():
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.95)
     return tf.ConfigProto(log_device_placement=True, gpu_options=gpu_options)
