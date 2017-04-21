@@ -75,6 +75,7 @@ with tf.Session(config=config) as sess:
 
     # Attention model and decoder
     with tf.variable_scope('to_train'):
+        pass
         tatt = Attention(image_conv_encoding_ph, caption_encoding_ph)
         decoder = Decoder(tatt.context_vector, rnn_inputs_ph)
 
@@ -141,7 +142,8 @@ with tf.Session(config=config) as sess:
 
             # Set up vars for update
             rnn_inputs = vocab.get_bos_rnn_input()
-            rnn_labels = [vocab.add_bos_eos(gc) for gc in guidance_caption_encodings]
+            rnn_labels = [vocab.add_bos_eos(extractor.tokenize_sentence(gc))
+                          for gc in guidance_captions]
             feed_dict = {caption_encoding_ph: guidance_caption_encodings,
                          image_conv_encoding_ph: example_conv_encodings,
                          rnn_inputs_ph: np.array(rnn_inputs),
@@ -149,7 +151,7 @@ with tf.Session(config=config) as sess:
 
             # Update weights
             for w in range(FLAGS.max_caption_size):
-                _, word_index, l = sess.run([update_step, predicted_index, loss], feed_dict=feed_dict)
+                word_index, l = sess.run([predicted_index, loss], feed_dict=feed_dict)
 
                 # Make the next input for the decoder
                 predicted_1hot = helpers.index_to_1hot(word_index)

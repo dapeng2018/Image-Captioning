@@ -22,7 +22,7 @@ It computes a context vector through an attention mechanism by "attending" diffe
 Finally, a decoder takes the context vector as input and generates a caption.
 It is comprised of a word embedding, LSTM, and prediction layer.
 The context vector is first mapped onto a word vector and is used as the initial word.
-A new word is predicted at each time step until "<eos>" is reached.
+A new word is predicted at each time step until "\<eos>" is reached.
 Dropout is used on the output layer of the decoder.
 
 ## Prerequisites

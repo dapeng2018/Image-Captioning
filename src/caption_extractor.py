@@ -15,7 +15,7 @@ import random
 import re
 import tensorflow as tf
 from sklearn.feature_extraction.text import CountVectorizer
-from threading import Thread, Lock
+from multiprocessing import Lock, Manager, Process
 
 FLAGS = tf.flags.FLAGS
 
@@ -64,7 +64,6 @@ class CaptionExtractor:
         """
 
         guidance_caption = [None] * FLAGS.batch_size
-        lock = Lock()
 
         def stem(extractor, caption):
             caption = extractor.tokenize_sentence(caption)
@@ -72,25 +71,36 @@ class CaptionExtractor:
             caption = extractor.clean_sentence(caption)
             return caption
 
-        # Update batch guidance caption list given an example's candidate captions
-        def update_guidance_caption(extractor, neighbors, index):
+        # Iterate through each example's candidate captions and select the appropriate guidance caption
+        for index, neighbors in enumerate(nearest_neighbors):
             # Filter full captions list to get captions relevant to our neighbors
             neighbors = [os.path.basename(neighbor.decode('UTF-8')) for neighbor in neighbors]
-            captions = {k: v for k, v in extractor.captions.items() if k in neighbors}
+            captions = {k: v for k, v in self.captions.items() if k in neighbors}
 
             # Flatten candidate captions into one list and stem all their words
             candidates = list(itertools.chain(*captions.values()))
-            candidates = [stem(extractor, candidate) for candidate in candidates]
+            candidates = [stem(self, candidate) for candidate in candidates]
 
-            # Compute CIDEr scores
-            total_scores = {}
+            # Compute CIDEr scores through in parallel
+            with Manager() as manager:
+                total_scores = manager.dict()
+                threads = []
+                lock = Lock()
 
-            for c in candidates:
-                ref = {filename: [c] for filename in captions.keys()}
-                score, _ = extractor.cider.compute_score(captions, ref)
-                total_scores[c] = score
+                def update_scores(c):
+                    ref = {filename: [c] for filename in captions.keys()}
+                    score, _ = self.cider.compute_score(captions, ref)
 
-            scores = [value for value in total_scores.values()]
+                    with lock:
+                        total_scores[c] = score
+
+                for candidate in candidates:
+                    t = Process(target=update_scores, args=(candidate, ))
+                    t.start()
+                    threads.append(t)
+
+                [t.join() for t in threads]
+                scores = [value for value in total_scores.values()]
 
             if inference:
                 # Select the highest scoring caption
@@ -98,21 +108,13 @@ class CaptionExtractor:
                 guidance = candidates[score_index]
             else:
                 # Select a random caption from the top k to prevent over-fitting during learning
-                indices = np.argpartition(scores, -FLAGS.k)[-FLAGS.k:]
+                k = FLAGS.k if len(scores) >= FLAGS.k else len(scores)
+                indices = np.argpartition(scores, -k)[-k:]
                 top_captions = [candidates[top_index] for top_index in indices]
-                guidance = top_captions[random.randint(0, FLAGS.k - 1)]
+                guidance = top_captions[random.randint(0, k - 1)]
 
-            with lock:
-                guidance_caption[index] = guidance
+            guidance_caption[index] = guidance
 
-        # Iterate through each example's candidate captions and select the appropriate guidance caption
-        threads = []
-        for i, n in enumerate(nearest_neighbors):
-            t = Thread(target=update_guidance_caption, args=(self, n, i, ))
-            t.start()
-            threads.append(t)
-
-        [t.join() for t in threads]
         return guidance_caption
 
     def make_caption_representations(self):

@@ -17,12 +17,13 @@ class Vocab:
         logging.info("New 'Vocab' instance has been initialized.")
 
         self.list, self._list = self.get_list()
-        FLAGS.vocab_size = 1#int(self.list.get_shape()[0])
+        FLAGS.vocab_size = int(self.list.get_shape()[0])
 
     @staticmethod
     def add_bos_eos(sentence):
         sentence.insert(0, '<bos>')
-        sentence.appent('<eos>')
+        sentence.append('<eos>')
+        print(sentence)
         return sentence
 
     @staticmethod

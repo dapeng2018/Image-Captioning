@@ -12,7 +12,7 @@ from math import ceil
 VGG_MEAN = [103.939, 116.779, 123.68]
 data = None
 dir_path = os.path.dirname(os.path.realpath(__file__))
-weights_name = dir_path + "/../../lib/fcn_vgg16.npy"
+weights_name = dir_path + "/../../lib/vgg16.npy"
 
 
 class FCN16VGG:

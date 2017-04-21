@@ -99,7 +99,7 @@ def get_fc7_filenames():
 
 
 def get_session_config():
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.9)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.95)
     return tf.ConfigProto(log_device_placement=True, gpu_options=gpu_options)
 
 
