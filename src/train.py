@@ -24,7 +24,7 @@ helpers.config_model_flags()
 helpers.config_logging(env='training')
 
 # Optimization flags
-tf.flags.DEFINE_integer('batch_size', 16, 'Mini-Batch size of images')
+tf.flags.DEFINE_integer('batch_size', 80, 'Mini-Batch size of images')
 tf.flags.DEFINE_integer('epochs', 100, 'Number of training iterations')
 tf.flags.DEFINE_float('learning_rate', 4e-4, 'Optimizer learning rate')
 tf.flags.DEFINE_float('learning_rate_dec_factor', .8, 'Factor in which the learning rate decreases')
@@ -50,12 +50,11 @@ with tf.Session(config=config) as sess:
     image_conv_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, FLAGS.conv_size])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     image_name_ph = tf.placeholder(dtype=tf.string)
-    labels_ph = tf.placeholder(tf.int32, shape=(None, ))
+    labels_ph = tf.placeholder(tf.float32, shape=(None, None, FLAGS.vocab_size))
     learning_rate_ph = tf.placeholder(dtype=tf.float32, shape=[1])
-    rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None, 5])
+    rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None, FLAGS.vocab_size])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), k, k, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
-    seq_len_ph = tf.placeholder(dtype=tf.int32, shape=[None, ])
 
     # Initialize auxiliary
     image_shape = [1, FLAGS.train_height, FLAGS.train_width, 3]
@@ -75,46 +74,31 @@ with tf.Session(config=config) as sess:
     stv.load_model(stv_uni_config, FLAGS.stv_vocab_file, FLAGS.stv_embeddings_file, FLAGS.stv_checkpoint_path)
 
     # Attention model and decoder
-    tatt = Attention(conv_encoding, caption_encoding_ph)
-    #decoder = Decoder(tatt.context_vector, rnn_inputs_ph)
+    with tf.variable_scope('to_train'):
+        tatt = Attention(image_conv_encoding_ph, caption_encoding_ph)
+        decoder = Decoder(tatt.context_vector, rnn_inputs_ph)
 
     # Set up ops for decoding the caption
-    #predicted_index = tf.argmax(decoder.output, axis=1)
-    #predicted_word = tf.gather(vocab.list, predicted_index)
+    predicted_index = tf.argmax(decoder.output, axis=1)
+    predicted_word = tf.gather(vocab.list, predicted_index)
 
-    """"
     # Loss ops
-    targets_one_hot = tf.one_hot(indices=labels_ph, depth=FLAGS.vocab_size, axis=1, dtype=tf.int32)
-    targets = tf.unstack(targets_one_hot, axis=1)
-    losses = [tf.nn.sparse_softmax_cross_entropy_with_logits(labels=target, logits=logits)
-              for logit, target in zip(logits, targets)]
-    loss = tf.reduce_mean(losses)
+    loss = tf.nn.softmax_cross_entropy_with_logits(logits=decoder.output, labels=labels_ph)
 
     # Optimization ops
-
     with tf.name_scope('optimization'):
         optimizer = tf.train.AdamOptimizer(learning_rate_ph)
-
-        # Attention optimization ops
-        attention_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='attention')
-        attention_grads = optimizer.compute_gradients(loss, attention_vars)
-        update_attention = optimizer.apply_gradients(attention_grads)
-
-        # Decoder optimization ops
-        decoder_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='decoder')
-        decoder_grads = optimizer.compute_gradients(loss, decoder_vars)
-        update_decoder = optimizer.apply_gradients(decoder_grads)
-
-        update_step = tf.group(update_attention, update_decoder)
-    """
+        model_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='to_train')
+        model_grads = optimizer.compute_gradients(loss, model_vars)
+        update_step = optimizer.apply_gradients(model_grads)
 
     # Training data ops
     example_image, example_filename = helpers.next_example(height=FLAGS.train_height, width=FLAGS.train_width)
     capacity = FLAGS.batch_size * 2
-    batch_examples, batch_filenams = tf.train.batch([example_image, example_filename],
-                                                    FLAGS.batch_size,
-                                                    num_threads=8,
-                                                    capacity=capacity)
+    batch_examples, batch_filenames = tf.train.batch([example_image, example_filename],
+                                                     FLAGS.batch_size,
+                                                     num_threads=8,
+                                                     capacity=capacity)
     all_examples, all_filenames = tf.train.batch([example_image, example_filename],
                                                  helpers.get_training_size(),
                                                  num_threads=8,
@@ -138,7 +122,7 @@ with tf.Session(config=config) as sess:
 
         # Iterate through our entire training dataset
         for i in range(num_iterations + 1):
-            # Compute image encdings
+            # Compute image encodings
             example_images = batch_examples.eval()
             example_conv_encodings = conv_encoding.eval(feed_dict={image_ph: example_images})
             examples_fc_encoding = fc_encoding.eval(feed_dict={image_ph: example_images})
@@ -157,31 +141,34 @@ with tf.Session(config=config) as sess:
 
             # Set up vars for update
             rnn_inputs = vocab.get_bos_rnn_input()
+            rnn_labels = [vocab.add_bos_eos(gc) for gc in guidance_caption_encodings]
             feed_dict = {caption_encoding_ph: guidance_caption_encodings,
                          image_conv_encoding_ph: example_conv_encodings,
-                         rnn_inputs_ph: np.array(rnn_inputs)}
+                         rnn_inputs_ph: np.array(rnn_inputs),
+                         labels_ph: np.array(rnn_labels[0])}
 
             # Update weights
-            for _ in range(FLAGS.max_caption_size):
-                # If the prediction was <eos>, break the loop
+            for w in range(FLAGS.max_caption_size):
+                _, word_index, l = sess.run([update_step, predicted_index, loss], feed_dict=feed_dict)
 
                 # Make the next input for the decoder
                 predicted_1hot = helpers.index_to_1hot(word_index)
                 predicted_1hot = [predicted_1hot]
                 rnn_inputs = np.concatenate((rnn_inputs, predicted_1hot), axis=1)
                 feed_dict[rnn_inputs_ph] = np.array(rnn_inputs)
-
-            # Decrement the learning rate if the desired threshold has been surpassed
-            if i > FLAGS.learning_rate_dec_threh and i % FLAGS.learning_rate_dec_freq == 0:
-                FLAGS.learning_rate /= FLAGS.learning_rate_dec_factor
+                feed_dict[labels_ph] = np.array(rnn_inputs[:w+1])
 
             # Log loss
             if i % FLAGS.print_every == 0:
                 logging.info("Epoch %03d | Iteration %06d | Loss %.03f" % (e, i, l))
 
-            # Occasionally save model
-            if i % FLAGS.save_every == 0:
-                helpers.save_model(saver, helpers.get_new_model_path)
+        # Decrement the learning rate if the desired threshold has been surpassed
+        if e > FLAGS.learning_rate_dec_threh and i % FLAGS.learning_rate_dec_freq == 0:
+            FLAGS.learning_rate /= FLAGS.learning_rate_dec_factor
+
+        # Occasionally save model
+        if e % FLAGS.save_every == 0:
+            helpers.save_model(saver, helpers.get_new_model_path)
 
     # Alert that training has been completed and print the run time
     elapsed = time.time() - start_time

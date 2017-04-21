@@ -48,7 +48,7 @@ with tf.Session(config=config) as sess:
     image_conv_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, FLAGS.conv_size])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
-    rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None, 5])
+    rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None, FLAGS.vocab_size])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
 
@@ -86,7 +86,7 @@ with tf.Session(config=config) as sess:
     # Restore previously trained model
     saved_path = os.path.abspath(FLAGS.model_path)
     saver = tf.train.Saver()
-    #saver.restore(sess, saved_path)
+    saver.restore(sess, saved_path)
 
     # Evaluate training images and imag encodings
     all_examples_eval = all_examples.eval()
@@ -125,7 +125,7 @@ with tf.Session(config=config) as sess:
     caption = []
 
     for _ in range(FLAGS.max_caption_size):
-        # Evaludate the literal string from the prediction
+        # Evaluate the literal string from the prediction
         word, word_index = sess.run([predicted_word, predicted_index], feed_dict=feed_dict)
 
         # Since this is not for a batch, get the first elements

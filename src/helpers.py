@@ -134,7 +134,7 @@ def get_training_next_path():
 
 
 def index_to_1hot(index):
-    return [1 if i == index else 0 for i in range(5)]
+    return [1 if i == index else 0 for i in range(FLAGS.vocab_size)]
 
 
 # Returns a numpy array of an image specified by its path

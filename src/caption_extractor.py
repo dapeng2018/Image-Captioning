@@ -84,11 +84,22 @@ class CaptionExtractor:
 
             # Compute CIDEr scores
             total_scores = {}
-            for c in candidates:
-                ref = {filename: [c] for filename in captions.keys()}
-                score, _ = extractor.cider.compute_score(captions, ref)
-                total_scores[c] = score
+            cider_lock = Lock()
 
+            def update_scores(_c):
+                ref = {filename: [_c] for filename in captions.keys()}
+                score, _ = extractor.cider.compute_score(captions, ref)
+
+                with cider_lock:
+                    total_scores[_c] = score
+
+            cider_threads = []
+            for c in candidates:
+                cider_thread = Thread(target=update_scores, args=(c, ))
+                cider_thread.start()
+                cider_threads.append(cider_thread)
+
+            [_cider_thread.join() for _cider_thread in cider_threads]
             scores = [value for value in total_scores.values()]
 
             if inference:
@@ -96,15 +107,13 @@ class CaptionExtractor:
                 score_index = scores.index(max(scores))
                 guidance = candidates[score_index]
             else:
-                # Select a random caption from the top k to prevent overfitting during learning
+                # Select a random caption from the top k to prevent over-fitting during learning
                 indices = np.argpartition(scores, -FLAGS.k)[-FLAGS.k:]
                 top_captions = [candidates[top_index] for top_index in indices]
                 guidance = top_captions[random.randint(0, FLAGS.k - 1)]
 
             with lock:
                 guidance_caption[index] = guidance
-
-            return
 
         # Iterate through each example's candidate captions and select the appropriate guidance caption
         threads = []
@@ -121,7 +130,7 @@ class CaptionExtractor:
         Creates the caption representation in the form of a list of ngrams and populates the term frequency record
         """
 
-        # Iterature through the annotations data and find all captions belonging to our image
+        # Iterate through the annotations data and find all captions belonging to our image
         for image in self.images_data:
             for annotation in self.annotations_data:
                 filename = image['file_name']

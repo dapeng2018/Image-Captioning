@@ -14,14 +14,14 @@ class Decoder:
     def __init__(self, context_vector, inputs):
         logging.info("New 'Decoder' instance has been initialized.")
 
-        with tf.variable_scope('decoder'):
+        with tf.name_scope('decoder'):
             # x0 (embeds attention context vector to word embedding space)
             x0_weights_init = tf.random_uniform([FLAGS.conv_size, FLAGS.embedding_size], -1.0, 1.0)
             x0_weights = tf.Variable(x0_weights_init)
             x0 = tf.matmul(context_vector, x0_weights)
 
             # Word embedding layer
-            embedding_shape = [5, FLAGS.embedding_size]
+            embedding_shape = [FLAGS.vocab_size, FLAGS.embedding_size]
             embedding_init = tf.random_uniform(embedding_shape, -1., 1.)
             self.word_embeddings = tf.Variable(embedding_init)
 

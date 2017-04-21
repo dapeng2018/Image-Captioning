@@ -23,6 +23,7 @@ class Vocab:
     def add_bos_eos(sentence):
         sentence.insert(0, '<bos>')
         sentence.appent('<eos>')
+        return sentence
 
     @staticmethod
     def clean(sentence):

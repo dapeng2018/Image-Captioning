@@ -7,4 +7,5 @@ log/
 *.zip
 *.json
 
+__pycache__
 model.ckpt-501424.data-00000-of-00001
