@@ -34,12 +34,11 @@ def config_model_flags():
     tf.flags.DEFINE_float('sched_rate', .75, 'Selection probability for scheduled sampling')
     tf.flags.DEFINE_integer('state_size', 512, 'State size of the LSTM')
     tf.flags.DEFINE_integer('stv_size', 2400, '')
-    tf.flags.DEFINE_integer('training_iters', 100, 'Number of training iterations')
     tf.flags.DEFINE_integer('train_height', 512, 'Height in which training images are to be scaled to')
     tf.flags.DEFINE_integer('train_width', 512, 'Width in which training images are to be scaled to')
     tf.flags.DEFINE_integer('train_height_sim', 224, 'Height that images are to be scaled to for similarity comparison')
     tf.flags.DEFINE_integer('train_width_sim', 224, 'Width that images are to be scaled to for similarity comparison')
-    tf.flags.DEFINE_integer('vocab_size', 9568, 'Total size of vocabulary including <BOS> and <EOS>')
+    tf.flags.DEFINE_integer('vocab_size', 9568, 'Total size of vocabulary including <bos> and <eos>')
 
     # Skip thought vector model flags
     stv_lib = get_lib_path() + '/stv/'
@@ -132,6 +131,10 @@ def get_training_next_path():
                 return os.path.join(root, name)
             else:
                 return get_training_next_path()
+
+
+def index_to_1hot(index):
+    return [1 if i == index else 0 for i in range(5)]
 
 
 # Returns a numpy array of an image specified by its path

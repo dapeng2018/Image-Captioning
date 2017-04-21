@@ -5,12 +5,13 @@
 
 import logging
 import tensorflow as tf
+from functools import partial
 
 FLAGS = tf.flags.FLAGS
 
 
 class Decoder:
-    def __init__(self, context_vector):
+    def __init__(self, context_vector, inputs):
         logging.info("New 'Decoder' instance has been initialized.")
 
         with tf.variable_scope('decoder'):
@@ -20,28 +21,29 @@ class Decoder:
             x0 = tf.matmul(context_vector, x0_weights)
 
             # Word embedding layer
-            weights_shape = [5, FLAGS.embedding_size]
-            weights_init = tf.random_uniform(weights_shape, -1., 1.)
-            self.word_embeddings = tf.Variable(weights_init)
-            self.logits = [tf.matmul(x0, self.word_embeddings, transpose_b=True)]
+            embedding_shape = [5, FLAGS.embedding_size]
+            embedding_init = tf.random_uniform(embedding_shape, -1., 1.)
+            self.word_embeddings = tf.Variable(embedding_init)
+
+            def embed(embedding, x):
+                return tf.matmul(x, embedding)
+
+            _embed = partial(embed, self.word_embeddings)
+            xt = tf.map_fn(_embed, inputs)
+
+            # Combine context hidden with other hiddens
+            x0 = tf.expand_dims(x0, axis=1)
+            xt = tf.concat([x0, xt], axis=1)
 
             # LSTM layer
             lstm = tf.contrib.rnn.BasicLSTMCell(FLAGS.embedding_size, state_is_tuple=True)
-            state = lstm.zero_state(FLAGS.batch_size, dtype=tf.float32)
+            init_state = lstm.zero_state(FLAGS.batch_size, dtype=tf.float32)
+            outputs, states = tf.nn.dynamic_rnn(lstm, xt, initial_state=init_state, dtype=tf.float32)
 
-            for i in range(FLAGS.max_caption_size - 1):
-                w = self.logits[-1]
-                x = tf.matmul(w, self.word_embeddings)
-                output, state = lstm(x, state)
-
-                # Prediction layer
-                prediction = tf.matmul(output, self.word_embeddings, transpose_b=True)
-                prediction = tf.nn.dropout(prediction, FLAGS.dropout_rate)
-                self.logits.append(prediction)
-
-                # Reuse the variables generated within the LSTM
-                if i == 0:
-                    tf.get_variable_scope().reuse_variables()
+            # Prediction layer
+            prediction = tf.matmul(outputs[-1], self.word_embeddings, transpose_b=True)
+            prediction = tf.nn.dropout(prediction, FLAGS.dropout_rate)
+            self.output = prediction
 
     def get_caption(self, vocab):
         caption = tf.convert_to_tensor(self.logits)

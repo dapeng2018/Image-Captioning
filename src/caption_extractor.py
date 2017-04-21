@@ -75,8 +75,7 @@ class CaptionExtractor:
         # Update batch guidance caption list given an example's candidate captions
         def update_guidance_caption(extractor, neighbors, index):
             # Filter full captions list to get captions relevant to our neighbors
-            neighbors = [os.path.basename(neighbor.decode('UTF-8'))
-                         for neighbor in neighbors]
+            neighbors = [os.path.basename(neighbor.decode('UTF-8')) for neighbor in neighbors]
             captions = {k: v for k, v in extractor.captions.items() if k in neighbors}
 
             # Flatten candidate captions into one list and stem all their words
@@ -84,13 +83,13 @@ class CaptionExtractor:
             candidates = [stem(extractor, candidate) for candidate in candidates]
 
             # Compute CIDEr scores
-            hyp = {hyp_index: candidates
-                   for hyp_index in range(len(candidates))}
-            ref = {ref_index: [candidate]
-                   for ref_index, candidate in enumerate(candidates)}
+            total_scores = {}
+            for c in candidates:
+                ref = {filename: [c] for filename in captions.keys()}
+                score, _ = extractor.cider.compute_score(captions, ref)
+                total_scores[c] = score
 
-            score, scores = extractor.cider.compute_score(hyp, ref)
-            scores = list(scores)
+            scores = [value for value in total_scores.values()]
 
             if inference:
                 # Select the highest scoring caption

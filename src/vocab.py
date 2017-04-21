@@ -16,7 +16,7 @@ class Vocab:
     def __init__(self):
         logging.info("New 'Vocab' instance has been initialized.")
 
-        self.list = self.get_list()
+        self.list, self._list = self.get_list()
         FLAGS.vocab_size = int(self.list.get_shape()[0])
 
     @staticmethod
@@ -36,7 +36,25 @@ class Vocab:
     def get_list():
         filename = helpers.get_lib_path() + '/stv/vocab.txt'
         lines = [line.rstrip('\n') for line in open(filename)]
-        return tf.convert_to_tensor(lines)
+        return tf.convert_to_tensor(lines), lines
+
+    def get_bos_rnn_input(self):
+        one_hot = self.get_bos_1hot()
+        return [[one_hot]]
+
+    def get_bos_1hot(self):
+        index = self.get_index_from_word('<bos>')
+        return helpers.index_to_1hot(index)
+
+    # Return the index form the vocab list given a word (string)
+    def get_index_from_word(self, word):
+        if word in self._list:
+            return self._list.index(word)
+        else:
+            return -1
+
+    def get_word_from_index(self, index):
+        return tf.gather(self.list, index)
 
     # Given a list of words, return their indices in the corpus
     def get_word_ids(self, words):

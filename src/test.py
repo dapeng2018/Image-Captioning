@@ -45,8 +45,10 @@ with tf.Session(config=config) as sess:
     # Initialize placeholders
     candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[None, FLAGS.n * 5])
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
+    image_conv_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, FLAGS.conv_size])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
+    rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None, 5])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
 
@@ -64,8 +66,8 @@ with tf.Session(config=config) as sess:
     vgg.build(image_ph, image_shape[1:])
     conv_encoding = vgg.pool5
     fc_encoding = vgg.fc7
-    tatt = Attention(conv_encoding, caption_encoding_ph)
-    decoder = Decoder(tatt.context_vector)
+    tatt = Attention(image_conv_encoding_ph, caption_encoding_ph)
+    decoder = Decoder(tatt.context_vector, rnn_inputs_ph)
 
     # Retrieve training images for caption extraction
     example_image, example_filename = helpers.next_example(height=FLAGS.train_height, width=FLAGS.train_width)
@@ -84,7 +86,7 @@ with tf.Session(config=config) as sess:
     # Restore previously trained model
     saved_path = os.path.abspath(FLAGS.model_path)
     saver = tf.train.Saver()
-    saver.restore(sess, saved_path)
+    #saver.restore(sess, saved_path)
 
     # Get nearest neighbor images to get list of candidate captions
     all_examples_eval = all_examples.eval()
@@ -109,15 +111,40 @@ with tf.Session(config=config) as sess:
     context_vector = tatt.context_vector
 
     # Decode caption
-    words = decoder.get_caption(vocab)
-    feed_dict = {caption_encoding_ph: guidance_caption_encoding, image_ph: input_image}
-    word_list = words.eval(feed_dict=feed_dict)
-    print("OUTPUT: %s" % decoder.make_readable(word_list))
+    input_conv_encoding = conv_encoding.eval(feed_dict={image_ph: input_image})
+    rnn_inputs = vocab.get_bos_rnn_input()
+    caption = []
 
-    # Stop threads and close the tensorflow sessions
+    for _ in range(FLAGS.max_caption_size):
+        # Transcribe the predicted word form the decoder prediction
+        predicted_index = tf.argmax(decoder.output, axis=1)
+        predicted_word = vocab.get_word_from_index(predicted_index)
+
+        # Evaludate the literal string
+        feed_dict = {caption_encoding_ph: guidance_caption_encoding,
+                     image_conv_encoding_ph: input_conv_encoding,
+                     rnn_inputs_ph: np.array(rnn_inputs)}
+        word, word_index = sess.run([predicted_word, predicted_index], feed_dict=feed_dict)
+
+        # Since this is not for a batch, get the first elements
+        word = word[0].decode('UTF-8')
+        word_index = word_index[0]
+
+        # If the prediction was <eos>, break the loop
+        if word == '<eos>':
+            break
+
+        # Append word to the running caption
+        caption.append(word)
+
+        # Make the next input for the decoder
+        predicted_1hot = helpers.index_to_1hot(word_index)
+        predicted_1hot = [[predicted_1hot]]
+        rnn_inputs = np.concatenate((rnn_inputs, predicted_1hot), axis=1)
+
+    caption = ' '.join(caption)
+    logging.info("OUTPUT: %s" % caption)
+
+    # Join threads
     coord.request_stop()
     coord.join(threads)
-    stv.close()
-    sess.close()
-
-exit(0)

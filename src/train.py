@@ -24,6 +24,7 @@ helpers.config_logging(env='training')
 
 # Optimization flags
 tf.flags.DEFINE_integer('batch_size', 16, 'Mini-Batch size of images')
+tf.flags.DEFINE_integer('epochs', 100, 'Number of training iterations')
 tf.flags.DEFINE_float('learning_rate', 4e-4, 'Optimizer learning rate')
 tf.flags.DEFINE_float('learning_rate_dec_factor', .8, 'Factor in which the learning rate decreases')
 tf.flags.DEFINE_integer('learning_rate_dec_freq', 3, 'How often (iterations) the learning rate decreases')
@@ -46,9 +47,10 @@ with tf.Session(config=config) as sess:
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
     image_name_ph = tf.placeholder(dtype=tf.string)
-    labels_ph = tf.placeholder(tf.int32, shape=(None, FLAGS.state_size))
+    labels_ph = tf.placeholder(tf.int32, shape=(None, ))
     learning_rate_ph = tf.placeholder(dtype=tf.float32, shape=[1])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
+    rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None, FLAGS.embedding_size])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), k, k, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
     seq_len_ph = tf.placeholder(dtype=tf.int32, shape=[None, ])
@@ -72,7 +74,7 @@ with tf.Session(config=config) as sess:
 
     # Attention model and decoder
     tatt = Attention(conv_encoding, caption_encoding_ph)
-    decoder = Decoder(tatt.context_vector)
+    decoder = Decoder(tatt.context_vector, rnn_inputs_ph)
     logits = decoder.logits
 
     # Loss ops
@@ -122,30 +124,33 @@ with tf.Session(config=config) as sess:
     saver = tf.train.Saver()
 
     # Optimization loop
-    for i in range(FLAGS.training_iters):
-        nearest_neighbors = neighbor.nearest.eval()
-        candidate_captions = [extractor.captions[filename] for filename in nearest_neighbors]
-        guidance_caption = extractor.guidance_caption_train.eval(feed_dict={})
-        extractor.extend_to_len(guidance_caption, FLAGS.embedding_size)
-        tokenized_caption = extractor.tokenize_sentence(guidance_caption)
-        guidance_caption_encoding = stv.encode(tokenized_caption, batch_size=FLAGS.batch_size)
+    for e in range(FLAGS.epochs):
+        num_iterations = math.floor(helpers.get_training_size() // FLAGS.batch_Size)
 
-        # Initialize new feed dict for the training iteration and invoke the update op
-        feed_dict = {learning_rate_ph: FLAGS.learning_rate, image_ph: batch_examples.eval()}
-        _, l = sess.run([update_step, loss], feed_dict=feed_dict)
-        sess.run(extractor.nearest_neighbors, feed_dict=feed_dict)
+        for i in range(num_iterations):
+            nearest_neighbors = neighbor.nearest.eval()
+            candidate_captions = [extractor.captions[filename] for filename in nearest_neighbors]
+            guidance_caption = extractor.guidance_caption_train.eval(feed_dict={})
+            extractor.extend_to_len(guidance_caption, FLAGS.embedding_size)
+            tokenized_caption = extractor.tokenize_sentence(guidance_caption)
+            guidance_caption_encoding = stv.encode(tokenized_caption, batch_size=FLAGS.batch_size)
 
-        # Decrement the learning rate if the desired threshold has been surpassed
-        if i > FLAGS.learning_rate_dec_threh and i % FLAGS.learning_rate_dec_freq == 0:
-            FLAGS.learning_rate /= FLAGS.learning_rate_dec_factor
+            # Initialize new feed dict for the training iteration and invoke the update op
+            feed_dict = {learning_rate_ph: FLAGS.learning_rate, image_ph: batch_examples.eval()}
+            _, l = sess.run([update_step, loss], feed_dict=feed_dict)
+            sess.run(extractor.nearest_neighbors, feed_dict=feed_dict)
 
-        # Log loss
-        if i % FLAGS.print_every == 0:
-            logging.info("Iteration %06d | Loss %.06f" % (i, l))
+            # Decrement the learning rate if the desired threshold has been surpassed
+            if i > FLAGS.learning_rate_dec_threh and i % FLAGS.learning_rate_dec_freq == 0:
+                FLAGS.learning_rate /= FLAGS.learning_rate_dec_factor
 
-        # Occasionally save model
-        if i % FLAGS.save_every == 0:
-            helpers.save_model(saver, helpers.get_new_model_path)
+            # Log loss
+            if i % FLAGS.print_every == 0:
+                logging.info("Epoch %03d | Iteration %06d | Loss %.06f" % (e, i, l))
+
+            # Occasionally save model
+            if i % FLAGS.save_every == 0:
+                helpers.save_model(saver, helpers.get_new_model_path)
 
     # Alert that training has been completed and print the run time
     elapsed = time.time() - start_time
@@ -153,11 +158,7 @@ with tf.Session(config=config) as sess:
     coord.request_stop()
     coord.join(threads)
 
-    # Save the trained model and close the tensorflow threads/sessions
+    # Save the trained model join threads
     helpers.save_model(saver, helpers.get_new_model_path)
     coord.request_stop()
     coord.join(threads)
-    stv.close()
-    sess.close()
-
-exit(0)
