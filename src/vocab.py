@@ -5,6 +5,7 @@
 
 import helpers
 import logging
+import numpy as np
 import re
 import tensorflow as tf
 from functools import partial
@@ -17,13 +18,12 @@ class Vocab:
         logging.info("New 'Vocab' instance has been initialized.")
 
         self.list, self._list = self.get_list()
-        FLAGS.vocab_size = int(self.list.get_shape()[0])
+        FLAGS.vocab_size = 5#int(self.list.get_shape()[0])
 
     @staticmethod
     def add_bos_eos(sentence):
         sentence.insert(0, '<bos>')
         sentence.append('<eos>')
-        print(sentence)
         return sentence
 
     @staticmethod
@@ -31,8 +31,8 @@ class Vocab:
         return [re.sub(r"[^\w\s]]", "", word) for word in sentence]
 
     @staticmethod
-    def extend_to_state_size(x):
-        x.extend(['' for _ in range(FLAGS.state_size - len(x))])
+    def pad(x):
+        x.extend(['<pad>' for _ in range(FLAGS.max_caption_size - len(x))])
 
     @staticmethod
     def get_list():
@@ -40,9 +40,10 @@ class Vocab:
         lines = [line.rstrip('\n') for line in open(filename)]
         return tf.convert_to_tensor(lines), lines
 
-    def get_bos_rnn_input(self):
+    def get_bos_rnn_input(self, batch_size):
         one_hot = self.get_bos_1hot()
-        return [[one_hot]]
+        batch_one_hot = [[one_hot] for _ in range(batch_size)]
+        return np.array(batch_one_hot)
 
     def get_bos_1hot(self):
         index = self.get_index_from_word('<bos>')
@@ -63,3 +64,15 @@ class Vocab:
 
         equals = partial(get_id, self.list)
         return tf.map_fn(equals, words)
+
+    # Given a batch of tokenized word labels, convert them to their one hot representations
+    def word_labels_to_1hot(self, batch_labels):
+        batch_one_hot = []
+
+        for labels in batch_labels:
+            self.pad(labels)
+            indices = [self.get_index_from_word(word) for word in labels]
+            one_hot = [helpers.index_to_1hot(index) for index in indices]
+            batch_one_hot.append(one_hot)
+
+        return batch_one_hot

@@ -5,10 +5,10 @@
 
 import logging
 import helpers
-import itertools
 import math
 import numpy as np
 import os
+import random
 import stv.configuration as stv_configuration
 import tensorflow as tf
 import time
@@ -116,17 +116,26 @@ with tf.Session(config=config) as sess:
     predicted_index = tf.argmax(decoder.output, axis=1)
     predicted_word = tf.gather(vocab.list, predicted_index)
 
-    rnn_inputs = vocab.get_bos_rnn_input()
+    rnn_inputs = vocab.get_bos_rnn_input(batch_size=1)
     feed_dict = {caption_encoding_ph: guidance_caption_encoding,
                  image_conv_encoding_ph: input_conv_encoding,
-                 rnn_inputs_ph: np.array(rnn_inputs)}
+                 rnn_inputs_ph: rnn_inputs}
 
     # Decode caption
     caption = []
 
     for _ in range(FLAGS.max_caption_size):
+        # Scheduled sampling
+        if random.random() >= FLAGS.sched_rate:
+            # Use sample
+            pass
+        else:
+            # Use ground-truth
+            _predicted_index = predicted_index
+            _predicted_word = predicted_word
+
         # Evaluate the literal string from the prediction
-        word, word_index = sess.run([predicted_word, predicted_index], feed_dict=feed_dict)
+        word, word_index = sess.run([_predicted_word, _predicted_index], feed_dict=feed_dict)
 
         # Since this is not for a batch, get the first elements
         word = word[0].decode('UTF-8')

@@ -23,7 +23,8 @@ tar -xvf "/tmp/train2014.zip" -C $LIB_DIR
 tar -xvf "/tmp/caption_train-val2014.zip" -C $LIB_DIR
 tar -xvf "/tmp/skip_thoughts_uni_2017_02_02.tar.gz" -C $STV_DIR
 
-# Append <bos> ato vocab.txt
+# Append <bos> and <pad> to vocab.txt
 echo "<bos>" >> "$Lib_DIR/stv/vocab.txt"
+echo "<pad>" >> "$Lib_DIR/stv/vocab.txt"
 
 exit 0

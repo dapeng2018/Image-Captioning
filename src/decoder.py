@@ -41,7 +41,7 @@ class Decoder:
             outputs, states = tf.nn.dynamic_rnn(lstm, xt, initial_state=init_state, dtype=tf.float32)
 
             # Prediction layer
-            prediction = tf.matmul(outputs[-1], self.word_embeddings, transpose_b=True)
+            prediction = tf.matmul(outputs[:, -1], self.word_embeddings, transpose_b=True)
             prediction = tf.nn.dropout(prediction, FLAGS.dropout_rate)
             self.output = prediction
 

@@ -7,6 +7,7 @@ import helpers
 import logging
 import math
 import numpy as np
+import random
 import tensorflow as tf
 import time
 
@@ -85,6 +86,7 @@ with tf.Session(config=config) as sess:
 
     # Loss ops
     loss = tf.nn.softmax_cross_entropy_with_logits(logits=decoder.output, labels=labels_ph)
+    loss = tf.reduce_mean(loss)
 
     # Optimization ops
     with tf.name_scope('optimization'):
@@ -111,7 +113,7 @@ with tf.Session(config=config) as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(coord=coord)
     start_time = time.time()
-    saver = tf.train.Saver()
+    saver = tf.train.Saver(model_vars)
 
     # Evaluate training examples now since they do not need to recomputed in our loop
     all_examples_eval = all_examples.eval()
@@ -141,36 +143,46 @@ with tf.Session(config=config) as sess:
             guidance_caption_encodings = stv.encode(guidance_captions, batch_size=FLAGS.batch_size, use_eos=True)
 
             # Set up vars for update
-            rnn_inputs = vocab.get_bos_rnn_input()
-            rnn_labels = [vocab.add_bos_eos(extractor.tokenize_sentence(gc))
-                          for gc in guidance_captions]
+            rnn_inputs = vocab.get_bos_rnn_input(FLAGS.batch_size)
+            rnn_word_labels = [vocab.add_bos_eos(extractor.tokenize_sentence(gc))
+                               for gc in guidance_captions]
+            rnn_1hot_labels = vocab.word_labels_to_1hot(rnn_word_labels)
+
             feed_dict = {caption_encoding_ph: guidance_caption_encodings,
                          image_conv_encoding_ph: example_conv_encodings,
                          rnn_inputs_ph: np.array(rnn_inputs),
-                         labels_ph: np.array(rnn_labels[0])}
+                         labels_ph: np.array(rnn_1hot_labels)[:, :1:]}
 
             # Update weights
             for w in range(FLAGS.max_caption_size):
-                word_index, l = sess.run([predicted_index, loss], feed_dict=feed_dict)
+                # Scheduled sampling
+                if e >= 10 and random.random() >= FLAGS.sched_rate:
+                    # Use sample
+                    pass
+                else:
+                    # Use ground-truth
+                    _predicted_index = predicted_index
+
+                word_indices, l = sess.run([_predicted_index, loss], feed_dict=feed_dict)
 
                 # Make the next input for the decoder
-                predicted_1hot = helpers.index_to_1hot(word_index)
-                predicted_1hot = [predicted_1hot]
+                predicted_1hot = [[helpers.index_to_1hot(word_index)]
+                                  for word_index in word_indices]
                 rnn_inputs = np.concatenate((rnn_inputs, predicted_1hot), axis=1)
-                feed_dict[rnn_inputs_ph] = np.array(rnn_inputs)
-                feed_dict[labels_ph] = np.array(rnn_inputs[:w+1])
+                feed_dict[rnn_inputs_ph] = rnn_inputs
+                feed_dict[labels_ph] = feed_dict[labels_ph][:, :w + 2:]
 
             # Log loss
             if i % FLAGS.print_every == 0:
                 logging.info("Epoch %03d | Iteration %06d | Loss %.03f" % (e, i, l))
 
         # Decrement the learning rate if the desired threshold has been surpassed
-        if e > FLAGS.learning_rate_dec_threh and i % FLAGS.learning_rate_dec_freq == 0:
+        if e > FLAGS.learning_rate_dec_thresh and i % FLAGS.learning_rate_dec_freq == 0:
             FLAGS.learning_rate /= FLAGS.learning_rate_dec_factor
 
         # Occasionally save model
         if e % FLAGS.save_every == 0:
-            helpers.save_model(saver, helpers.get_new_model_path)
+            helpers.save_model(sess, saver, helpers.get_new_model_path())
 
     # Alert that training has been completed and print the run time
     elapsed = time.time() - start_time
@@ -179,6 +191,6 @@ with tf.Session(config=config) as sess:
     coord.join(threads)
 
     # Save the trained model join threads
-    helpers.save_model(saver, helpers.get_new_model_path())
+    helpers.save_model(sess, saver, helpers.get_new_model_path(), trained=True)
     coord.request_stop()
     coord.join(threads)

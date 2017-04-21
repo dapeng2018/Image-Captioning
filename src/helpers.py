@@ -234,8 +234,13 @@ def pickle_exists(name):
 
 
 # Saves the model weights
-def save_model(session, saver, path):
+def save_model(session, saver, path, trained=False):
     logging.info("Proceeding to save weights at '%s'" % path)
+
+    # Prepend stamp to indicate this is a trained model
+    if trained:
+        path = "trained_" + path
+
     saver.save(session, path)
     logging.info("Weights have been saved.")
 

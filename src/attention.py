@@ -15,8 +15,7 @@ class Attention:
 
         with tf.name_scope('attention'):
             # Image feature ops
-            image_encoding = tf.reshape(image_encoding, shape=[-1, FLAGS.conv_size, FLAGS.kk])
-            image_encoding = tf.reduce_mean(image_encoding, axis=2)
+            image_encoding = tf.reshape(image_encoding, shape=[-1, FLAGS.conv_size])
             w_image_init = tf.random_uniform([FLAGS.conv_size, FLAGS.embedding_size], -1., 1.)
             w_image = tf.Variable(w_image_init)
             c_image = tf.matmul(image_encoding, w_image)
@@ -27,13 +26,16 @@ class Attention:
             w_caption_init = tf.random_uniform([FLAGS.stv_size, FLAGS.conv_size], -1., 1.)
             w_caption = tf.Variable(w_caption_init)
             c_caption = tf.matmul(caption_encoding, w_caption)
+            c_caption = tf.concat([c_caption for _ in range(FLAGS.kk)], axis=0)
 
             # Weighted attention ops
             w_attention = tf.Variable(tf.random_uniform([FLAGS.conv_size, FLAGS.conv_size], -1., 1.))
             t_attention = tf.nn.tanh(c_image + c_caption)
-            c_attention = tf.matmul(t_attention, w_attention)
+            e = tf.matmul(t_attention, w_attention)
 
             # Context ops
-            alphas = tf.nn.softmax(c_attention)
-            context = alphas * image_encoding
-            self.context_vector = context
+            a = tf.nn.softmax(e)
+            z = a * image_encoding
+            z = tf.reshape(z, shape=[-1, FLAGS.conv_size, FLAGS.kk])
+            z = tf.reduce_sum(z, axis=2)
+            self.context_vector = z
