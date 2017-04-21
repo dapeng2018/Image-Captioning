@@ -26,7 +26,7 @@ tf.flags.DEFINE_integer('batch_size', 1, '')
 tf.flags.DEFINE_string('input', None, '')
 tf.flags.DEFINE_string('model_path', None, '')
 helpers.config_model_flags()
-helpers.config_logging(env='testing')
+helpers.config_logging()
 
 if not FLAGS.input or not FLAGS.model_path:
     logging.error('You did not provide an input image path and model path.')
@@ -86,7 +86,7 @@ with tf.Session(config=config) as sess:
     # Restore previously trained model
     saved_path = os.path.abspath(FLAGS.model_path)
     saver = tf.train.Saver()
-    saver.restore(sess, saved_path)
+    #saver.restore(sess, saved_path)
 
     # Evaluate training images and imag encodings
     all_examples_eval = all_examples.eval()
@@ -115,6 +115,8 @@ with tf.Session(config=config) as sess:
     input_conv_encoding = conv_encoding.eval(feed_dict={image_ph: input_image})
     predicted_index = tf.argmax(decoder.output, axis=1)
     predicted_word = tf.gather(vocab.list, predicted_index)
+    sampled_index = decoder.sample()
+    sampled_word = tf.gather(vocab.list, sampled_index)
 
     rnn_inputs = vocab.get_bos_rnn_input(batch_size=1)
     feed_dict = {caption_encoding_ph: guidance_caption_encoding,
@@ -128,7 +130,8 @@ with tf.Session(config=config) as sess:
         # Scheduled sampling
         if random.random() >= FLAGS.sched_rate:
             # Use sample
-            pass
+            _predicted_index = sampled_index
+            _predicted_word = sampled_word
         else:
             # Use ground-truth
             _predicted_index = predicted_index
@@ -156,7 +159,7 @@ with tf.Session(config=config) as sess:
 
     # Convert caption array into string and print it
     caption = ' '.join(caption)
-    logging.info("OUTPUT: %s" % caption)
+    logging.info(caption)
 
     # Join threads
     coord.request_stop()

@@ -18,7 +18,7 @@ class Vocab:
         logging.info("New 'Vocab' instance has been initialized.")
 
         self.list, self._list = self.get_list()
-        FLAGS.vocab_size = 5#int(self.list.get_shape()[0])
+        FLAGS.vocab_size = int(self.list.get_shape()[0])
 
     @staticmethod
     def add_bos_eos(sentence):

@@ -32,6 +32,12 @@ tf.flags.DEFINE_float('learning_rate_dec_factor', .8, 'Factor in which the learn
 tf.flags.DEFINE_integer('learning_rate_dec_freq', 3, 'How often (iterations) the learning rate decreases')
 tf.flags.DEFINE_integer('learning_rate_dec_thresh', 10, 'Number of iterations before learning rate starts decreasing')
 
+# Scheduled sampling flags
+tf.flags.DEFINE_float('sched_c', .1, 'Offset constant for decaying scheduled sampling rate in linear decay')
+tf.flags.DEFINE_string('sched_dec_type', 'lin', 'Scheduled sampling rate decay type. [lin, exp, inv]')
+tf.flags.DEFINE_float('sched_k', 1, 'Constant for decaying scheduled sampling rate. k < 1 in exp and k >= 1 in inv')
+tf.flags.DEFINE_integer('sched_start', 10, 'When (epoch) scheduled sampling should begin')
+
 # Misc flags
 tf.flags.DEFINE_float('epsilon', 1e-8, 'Tiny value to for log parameters')
 tf.flags.DEFINE_integer('print_every', 100, 'How often (iterations) to log the current progress of training')
@@ -82,7 +88,7 @@ with tf.Session(config=config) as sess:
 
     # Set up ops for decoding the caption
     predicted_index = tf.argmax(decoder.output, axis=1)
-    predicted_word = tf.gather(vocab.list, predicted_index)
+    sampled_index = decoder.sample()
 
     # Loss ops
     loss = tf.nn.softmax_cross_entropy_with_logits(logits=decoder.output, labels=labels_ph)
@@ -156,9 +162,9 @@ with tf.Session(config=config) as sess:
             # Update weights
             for w in range(FLAGS.max_caption_size):
                 # Scheduled sampling
-                if e >= 10 and random.random() >= FLAGS.sched_rate:
+                if e >= FLAGS.sched_start and random.random() >= FLAGS.sched_rate:
                     # Use sample
-                    pass
+                    _predicted_index = sampled_index
                 else:
                     # Use ground-truth
                     _predicted_index = predicted_index
@@ -175,6 +181,16 @@ with tf.Session(config=config) as sess:
             # Log loss
             if i % FLAGS.print_every == 0:
                 logging.info("Epoch %03d | Iteration %06d | Loss %.03f" % (e, i, l))
+
+        # Decay the scheduled sampling rate
+        if FLAGS.sched_dec_type == 'lin':
+            alternative = FLAGS.sched_k - FLAGS.sched_c * e
+            FLAGS.sched_rate = max(FLAGS.sched_rate, alternative)
+        elif FLAGS.sched_dec_type == 'exp':
+            FLAGS.sched_rate = FLAGS.sched_k ^ e
+        elif FLAGS.sched_dec_type == 'inverse_sig':
+            divisor = FLAGS.sched_k + math.exp(e / FLAGS.sched_k)
+            FLAGS.sched_rate = FLAGS.sched_k / divisor
 
         # Decrement the learning rate if the desired threshold has been surpassed
         if e > FLAGS.learning_rate_dec_thresh and i % FLAGS.learning_rate_dec_freq == 0:

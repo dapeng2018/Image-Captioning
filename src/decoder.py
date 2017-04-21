@@ -45,16 +45,6 @@ class Decoder:
             prediction = tf.nn.dropout(prediction, FLAGS.dropout_rate)
             self.output = prediction
 
-    def get_caption(self, vocab):
-        caption = tf.convert_to_tensor(self.logits)
-        caption = tf.reshape(caption, [FLAGS.max_caption_size, -1])
-
-        max_indices = tf.argmax(caption, axis=1)
-        max_indices = tf.reshape(max_indices, [-1])
-        words = tf.gather(vocab.list, max_indices)
-
-        return words
-
     @staticmethod
     def make_readable(word_list):
         # Decode words
@@ -66,3 +56,15 @@ class Decoder:
             word_list = word_list[:eos_index]
 
         return ' '.join(word_list)
+
+    def sample(self):
+        # Make positive and get probabilities
+        positive = tf.exp(self.output)
+        probabilities = positive / tf.reduce_sum(positive)
+
+        # Use a randomly generated uniform distirbution in attempt to draw  random sample
+        shape = [FLAGS.batch_size, tf.shape(self.output)[-1]]
+        random = tf.random_uniform(shape, minval=0., maxval=1.)
+        sample = tf.argmax(probabilities - random, axis=1)
+
+        return sample

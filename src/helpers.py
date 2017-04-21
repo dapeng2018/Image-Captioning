@@ -18,8 +18,8 @@ from vgg.fcn16_vgg import FCN16VGG as Vgg16
 FLAGS = tf.flags.FLAGS
 
 
-def config_logging(env='training'):
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+def config_logging():
+    logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
 
 def config_model_flags():
@@ -33,7 +33,7 @@ def config_model_flags():
     tf.flags.DEFINE_integer('ngrams', 4, 'Number of grams (up-to) for candidate caption scoring')
     tf.flags.DEFINE_float('sched_rate', .75, 'Selection probability for scheduled sampling')
     tf.flags.DEFINE_integer('state_size', 512, 'State size of the LSTM')
-    tf.flags.DEFINE_integer('stv_size', 2400, '')
+    tf.flags.DEFINE_integer('stv_size', 2400, 'Output size of the skip-thought vector encoder')
     tf.flags.DEFINE_integer('train_height', 512, 'Height in which training images are to be scaled to')
     tf.flags.DEFINE_integer('train_width', 512, 'Width in which training images are to be scaled to')
     tf.flags.DEFINE_integer('train_height_sim', 224, 'Height that images are to be scaled to for similarity comparison')
@@ -173,6 +173,7 @@ def load_image_to(path, height=None, width=None):
     return skimage.transform.resize(img, (ny, nx))
 
 
+# Retrieve the next training example and its filename with the dimensions specified
 def next_example(height, width):
     # Ops for getting training images, from retrieving the filenames to reading the data
     regex = get_training_path() + '*.jpg'
@@ -187,48 +188,14 @@ def next_example(height, width):
     return img, filename
 
 
+# Log a python object from a pickle file in the lib dir by simply specifying its name (minus .pkl)
 def load_obj(name):
     with open(get_lib_path() + name + '.pkl', 'rb') as f:
         x = pickle.load(f)
         return x
 
 
-def make_training_fc7_file():
-    save_obj([], 'fc7_filenames')
-    save_obj([], 'fc7_encodings')
-
-    # Append a dictionary object {filename: encoding} to the list contained in the pickle file
-    def append_fc7_encoding(f, e):
-        filenames = get_fc7_filenames()
-        filenames.append(f)
-        save_obj(filenames, 'fc7_filenames')
-
-        encodings = get_fc7_encodings()
-        encodings.append(e)
-        save_obj(encodings, 'fc7_encodings')
-
-    # Create a tf session to evaluate encodings for training images resized to the given shape
-    shape = [1, 224, 224, 3]
-    with tf.Session() as sess:
-        image_placeholder = tf.placeholder(dtype=tf.float32, shape=shape)
-
-        vgg = Vgg16()
-        vgg.build(image_placeholder, shape[1:])
-        layer = vgg.fc7
-
-        sess.run(tf.global_variables_initializer())
-
-        # Iterate through the training set, evaluate the encodings, and append to the pickle file
-        for i in range(get_training_size()):
-            if i % 100 == 0:
-                print(i)
-            filename = get_training_next_path()
-            img = load_image_to(filename, shape[1], shape[2])
-            img = img.reshape(shape).astype(np.float32)
-            encoding = sess.run(layer, feed_dict={image_placeholder: img})
-            append_fc7_encoding(filename, encoding)
-
-
+# Return whether or not a specified pickle file exists in the lib dir
 def pickle_exists(name):
     return os.path.exists(get_lib_path() + name + '.pkl')
 
@@ -245,6 +212,7 @@ def save_model(session, saver, path, trained=False):
     logging.info("Weights have been saved.")
 
 
+# Save a python object as a pickle file in the lib dir
 def save_obj(obj, name):
     with open(get_lib_path() + name + '.pkl', 'wb') as f:
         pickle.dump(obj, f)
