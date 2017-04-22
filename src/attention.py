@@ -15,21 +15,21 @@ class Attention:
 
         with tf.name_scope('attention'):
             # Image feature ops
-            image_encoding = tf.reshape(image_encoding, shape=[-1, FLAGS.conv_size])
-            w_image_init = tf.random_uniform([FLAGS.conv_size, FLAGS.embedding_size], -1., 1.)
+            image_encoding = tf.reshape(image_encoding, shape=[-1, FLAGS.kk])
+            w_image_init = tf.truncated_normal([FLAGS.kk, FLAGS.conv_size], stddev=.02)
             w_image = tf.Variable(w_image_init)
             c_image = tf.matmul(image_encoding, w_image)
-            b_image = tf.Variable(tf.constant(.1, shape=[FLAGS.embedding_size]))
+            b_image = tf.Variable(tf.constant(.1, shape=[FLAGS.conv_size]))
             c_image = tf.nn.bias_add(c_image, b_image)
 
             # Caption feature ops
             w_caption_init = tf.random_uniform([FLAGS.stv_size, FLAGS.conv_size], -1., 1.)
             w_caption = tf.Variable(w_caption_init)
             c_caption = tf.matmul(caption_encoding, w_caption)
-            c_caption = tf.concat([c_caption for _ in range(FLAGS.kk)], axis=0)
+            c_caption = tf.concat([c_caption for _ in range(FLAGS.conv_size)], axis=0)
 
             # Weighted attention ops
-            w_attention = tf.Variable(tf.random_uniform([FLAGS.conv_size, FLAGS.conv_size], -1., 1.))
+            w_attention = tf.Variable(tf.random_uniform([FLAGS.conv_size, FLAGS.kk], -1., 1.))
             t_attention = tf.nn.tanh(c_image + c_caption)
             e = tf.matmul(t_attention, w_attention)
 

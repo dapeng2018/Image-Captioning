@@ -149,7 +149,7 @@ with tf.Session(config=config) as sess:
             break
 
         # Append word to the running caption
-        caption.append(word)
+        caption.append(word.lower())
 
         # Make the next input for the decoder
         predicted_1hot = helpers.index_to_1hot(word_index)

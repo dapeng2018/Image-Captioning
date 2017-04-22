@@ -58,7 +58,7 @@ with tf.Session(config=config) as sess:
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     image_name_ph = tf.placeholder(dtype=tf.string)
     labels_ph = tf.placeholder(tf.float32, shape=(None, None, FLAGS.vocab_size))
-    learning_rate_ph = tf.placeholder(dtype=tf.float32, shape=[1])
+    learning_rate_ph = tf.placeholder(dtype=tf.float32)
     rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None, FLAGS.vocab_size])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), k, k, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
@@ -82,7 +82,6 @@ with tf.Session(config=config) as sess:
 
     # Attention model and decoder
     with tf.variable_scope('to_train'):
-        pass
         tatt = Attention(image_conv_encoding_ph, caption_encoding_ph)
         decoder = Decoder(tatt.context_vector, rnn_inputs_ph)
 
@@ -90,16 +89,13 @@ with tf.Session(config=config) as sess:
     predicted_index = tf.argmax(decoder.output, axis=1)
     sampled_index = decoder.sample()
 
-    # Loss ops
-    loss = tf.nn.softmax_cross_entropy_with_logits(logits=tf.square(decoder.output), labels=labels_ph)
-    loss = tf.reduce_mean(loss)
-
     # Optimization ops
     with tf.name_scope('optimization'):
+        cross_entropy = -tf.reduce_sum(labels_ph * tf.log(decoder.output + FLAGS.epsilon))
         optimizer = tf.train.AdamOptimizer(learning_rate_ph)
         model_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='to_train')
-        model_grads = optimizer.compute_gradients(loss, model_vars)
-        #update_step = optimizer.apply_gradients(model_grads)
+        model_grads = optimizer.compute_gradients(cross_entropy, model_vars)
+        update_step = optimizer.apply_gradients(model_grads)
 
     # Training data ops
     example_image, example_filename = helpers.next_example(height=FLAGS.train_height, width=FLAGS.train_width)
@@ -156,6 +152,7 @@ with tf.Session(config=config) as sess:
 
             feed_dict = {caption_encoding_ph: guidance_caption_encodings,
                          image_conv_encoding_ph: example_conv_encodings,
+                         learning_rate_ph: FLAGS.learning_rate,
                          rnn_inputs_ph: np.array(rnn_inputs),
                          labels_ph: np.array(rnn_1hot_labels)[:, :1:]}
 
@@ -169,7 +166,7 @@ with tf.Session(config=config) as sess:
                     # Use ground-truth
                     _predicted_index = predicted_index
 
-                word_indices, l = sess.run([_predicted_index, loss], feed_dict=feed_dict)
+                word_indices, loss, _ = sess.run([_predicted_index, cross_entropy, update_step], feed_dict=feed_dict)
 
                 # Make the next input for the decoder
                 predicted_1hot = [[helpers.index_to_1hot(word_index)]
@@ -180,7 +177,7 @@ with tf.Session(config=config) as sess:
 
             # Log loss
             if i % FLAGS.print_every == 0:
-                logging.info("Epoch %03d | Iteration %06d | Loss %.03f" % (e, i, l))
+                logging.info("Epoch %03d | Iteration %06d | Loss %.03f" % (e, i, loss))
 
         # Decay the scheduled sampling rate
         if FLAGS.sched_dec_type == 'lin':

@@ -16,7 +16,7 @@ class Decoder:
 
         with tf.name_scope('decoder'):
             # x0 (embeds attention context vector to word embedding space)
-            x0_weights_init = tf.random_uniform([FLAGS.conv_size, FLAGS.embedding_size], -1.0, 1.0)
+            x0_weights_init = tf.truncated_normal([FLAGS.conv_size, FLAGS.embedding_size], stddev=.1)
             x0_weights = tf.Variable(x0_weights_init)
             x0 = tf.matmul(context_vector, x0_weights)
 
@@ -26,7 +26,7 @@ class Decoder:
             self.word_embeddings = tf.Variable(embedding_init)
 
             def embed(embedding, x):
-                return tf.matmul(x, embedding)
+                return tf.nn.embedding_lookup(embedding, tf.argmax(x, axis=1))
 
             _embed = partial(embed, self.word_embeddings)
             xt = tf.map_fn(_embed, inputs)
@@ -43,7 +43,7 @@ class Decoder:
             # Prediction layer
             prediction = tf.matmul(outputs[:, -1], self.word_embeddings, transpose_b=True)
             prediction = tf.nn.dropout(prediction, FLAGS.dropout_rate)
-            self.output = prediction
+            self.output = tf.nn.softmax(prediction)
 
     @staticmethod
     def make_readable(word_list):

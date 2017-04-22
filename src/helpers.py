@@ -25,7 +25,7 @@ def config_logging():
 def config_model_flags():
     tf.flags.DEFINE_integer('conv_size', 512, 'Number of maps of the vgg image encoding')
     tf.flags.DEFINE_float('dropout_rate', .5, 'Probability of applying dropout for the final layer of the decoder')
-    tf.flags.DEFINE_integer('embedding_size', 512, 'Max length of the embedding space')
+    tf.flags.DEFINE_integer('embedding_size', 128, 'Max length of the embedding space')
     tf.flags.DEFINE_integer('k', 10, 'Number of consensus captions to retrieve')
     tf.flags.DEFINE_integer('kk', 16 * 16, 'Filter map size (height * width) of the vgg image encoding')
     tf.flags.DEFINE_integer('max_caption_size', 30, 'Maximum number of words for caption if <eos> is not reached')
@@ -97,7 +97,7 @@ def get_logs_path():
 
 
 def get_new_model_path():
-    return get_lib_path() + '/model_%s' % time.time()
+    return get_lib_path() + '/models/model_%s' % time.time()
 
 
 def get_training_path():
