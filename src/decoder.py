@@ -72,7 +72,7 @@ class Decoder:
         Randomly sample from the prediction distribution
         This is used for scheduled sampling
 
-        :return: a one-hot encoded tensor of shape [batch size, vocab size]
+        :return: tensor containing indices for the sampled word embedding of shape [batch size, 1]
         """
 
         # Make positive and get probabilities

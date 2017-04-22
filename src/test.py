@@ -108,19 +108,21 @@ with tf.Session(config=config) as sess:
     guidance_captions = extractor.get_guidance_caption(nearest_neighbors, inference=False)
 
     # Compute context vector using the guidance caption and image encodings
+    input_conv_encoding = conv_encoding.eval(feed_dict={image_ph: input_image})
     guidance_caption_encoding = stv.encode(guidance_captions, batch_size=1, use_eos=True)
-    context_vector = tatt.context_vector
+    context_dict = {caption_encoding_ph: guidance_caption_encoding,
+                    image_conv_encoding_ph: input_conv_encoding}
+    context_vector = tatt.context_vector.eval(feed_dict=context_dict)
 
     # Set up ops and vars for decoding the caption
-    input_conv_encoding = conv_encoding.eval(feed_dict={image_ph: input_image})
     __predicted_index = tf.argmax(decoder.output, axis=1)
     predicted_word = tf.gather(vocab.list, __predicted_index)
     predicted_index = tf.expand_dims(__predicted_index, axis=1)
     __sampled_index = decoder.sample(expand=False)
     sampled_word = tf.gather(vocab.list, __sampled_index)
     sampled_index = tf.expand_dims(__sampled_index, axis=1)
-
     rnn_inputs = vocab.get_bos_rnn_input(batch_size=1)
+
     feed_dict = {caption_encoding_ph: guidance_caption_encoding,
                  image_conv_encoding_ph: input_conv_encoding,
                  rnn_inputs_ph: rnn_inputs}

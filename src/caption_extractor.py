@@ -46,11 +46,6 @@ class CaptionExtractor:
         return re.sub(r'[^\w\s]', '', sentence)
 
     @staticmethod
-    # Append the <pad> token up to the globally specified max caption size
-    def extend_to_len(x, n=512):
-        x.extend(['' for _ in range(n - len(x))])
-
-    @staticmethod
     # Retrieve the MSCOCO annotations and images data in the form of dictionaries
     def get_annotations(path=helpers.get_captions_path()):
         with open(path) as data_file:
@@ -154,14 +149,11 @@ class CaptionExtractor:
         return [self.stem_word(stemmer, word) for word in nltk.word_tokenize(sentence)]
 
     # Tokenize a set of sentences and pad it if specified
-    def tokenize_sentences(self, sentences, pad=False):
+    def tokenize_sentences(self, sentences):
         tokenized_sentences = []
 
         for sentence in sentences:
             ts = self.tokenize_sentence(sentence)
-            if pad:
-                self.extend_to_len(ts, FLAGS.state_size)
-
             tokenized_sentences.append(ts)
 
         return tokenized_sentences

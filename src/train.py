@@ -52,6 +52,7 @@ with tf.Session(config=config) as sess:
     # Initialize placeholders
     candidate_captions_ph = tf.placeholder(dtype=tf.string, shape=[None, FLAGS.n * 5])
     caption_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.stv_size])
+    context_vector_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.conv_size])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
     image_conv_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, FLAGS.conv_size])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
@@ -82,7 +83,7 @@ with tf.Session(config=config) as sess:
     # Attention model and decoder
     with tf.variable_scope('to_train'):
         tatt = Attention(image_conv_encoding_ph, caption_encoding_ph)
-        decoder = Decoder(tatt.context_vector, rnn_inputs_ph)
+        decoder = Decoder(context_vector_ph, rnn_inputs_ph)
 
     # Set up ops for decoding the caption
     predicted_index = tf.argmax(decoder.output, axis=1)
@@ -144,14 +145,19 @@ with tf.Session(config=config) as sess:
             guidance_captions = extractor.get_guidance_caption(nearest_neighbors)
             guidance_caption_encodings = stv.encode(guidance_captions, batch_size=FLAGS.batch_size, use_eos=True)
 
-            # Set up vars for update
+            # Set up RNN inputs and labels
             rnn_inputs = vocab.get_bos_rnn_input(FLAGS.batch_size)
             rnn_word_labels = [vocab.add_bos_eos(extractor.tokenize_sentence(extractor.stemmer, gc))
                                for gc in guidance_captions]
             rnn_1hot_labels = vocab.word_labels_to_1hot(rnn_word_labels)
 
-            feed_dict = {caption_encoding_ph: guidance_caption_encodings,
-                         image_conv_encoding_ph: example_conv_encodings,
+            # Compute the context vector so it is not recomputed for each time step of the LSTM
+            context_dict = {caption_encoding_ph: guidance_caption_encodings,
+                            image_conv_encoding_ph: example_conv_encodings}
+            context_vector = tatt.context_vector.eval(feed_dict=context_dict)
+
+            # Feed for the update
+            feed_dict = {context_vector_ph: context_vector,
                          learning_rate_ph: FLAGS.learning_rate,
                          rnn_inputs_ph: rnn_inputs,
                          labels_ph: np.array(rnn_1hot_labels)[:, :1:]}
