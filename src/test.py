@@ -48,7 +48,7 @@ with tf.Session(config=config) as sess:
     image_conv_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, FLAGS.conv_size])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     image_ph = tf.placeholder(dtype=tf.float32, shape=[None, FLAGS.train_height, FLAGS.train_width, 3])
-    rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None, FLAGS.vocab_size])
+    rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
 
@@ -113,10 +113,12 @@ with tf.Session(config=config) as sess:
 
     # Set up ops and vars for decoding the caption
     input_conv_encoding = conv_encoding.eval(feed_dict={image_ph: input_image})
-    predicted_index = tf.argmax(decoder.output, axis=1)
-    predicted_word = tf.gather(vocab.list, predicted_index)
-    sampled_index = decoder.sample()
-    sampled_word = tf.gather(vocab.list, sampled_index)
+    __predicted_index = tf.argmax(decoder.output, axis=1)
+    predicted_word = tf.gather(vocab.list, __predicted_index)
+    predicted_index = tf.expand_dims(__predicted_index, axis=1)
+    __sampled_index = decoder.sample(expand=False)
+    sampled_word = tf.gather(vocab.list, __sampled_index)
+    sampled_index = tf.expand_dims(__sampled_index, axis=1)
 
     rnn_inputs = vocab.get_bos_rnn_input(batch_size=1)
     feed_dict = {caption_encoding_ph: guidance_caption_encoding,
@@ -142,7 +144,6 @@ with tf.Session(config=config) as sess:
 
         # Since this is not for a batch, get the first elements
         word = word[0].decode('UTF-8')
-        word_index = word_index[0]
 
         # If the prediction was <eos>, break the loop
         if word == '<eos>':
@@ -152,9 +153,7 @@ with tf.Session(config=config) as sess:
         caption.append(word.lower())
 
         # Make the next input for the decoder
-        predicted_1hot = helpers.index_to_1hot(word_index)
-        predicted_1hot = [[predicted_1hot]]
-        rnn_inputs = np.concatenate((rnn_inputs, predicted_1hot), axis=1)
+        rnn_inputs = np.concatenate((rnn_inputs, word_index), axis=1)
         feed_dict[rnn_inputs_ph] = np.array(rnn_inputs)
 
     # Convert caption array into string and print it

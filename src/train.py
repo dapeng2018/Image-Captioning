@@ -39,7 +39,6 @@ tf.flags.DEFINE_float('sched_k', 1, 'Constant for decaying scheduled sampling ra
 tf.flags.DEFINE_integer('sched_start', 10, 'When (epoch) scheduled sampling should begin')
 
 # Misc flags
-tf.flags.DEFINE_float('epsilon', 1e-8, 'Tiny value to for log parameters')
 tf.flags.DEFINE_integer('print_every', 100, 'How often (iterations) to log the current progress of training')
 tf.flags.DEFINE_integer('save_every', 1, 'How often epochs) to save the current state of the model')
 
@@ -59,7 +58,7 @@ with tf.Session(config=config) as sess:
     image_name_ph = tf.placeholder(dtype=tf.string)
     labels_ph = tf.placeholder(tf.float32, shape=(None, None, FLAGS.vocab_size))
     learning_rate_ph = tf.placeholder(dtype=tf.float32)
-    rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None, FLAGS.vocab_size])
+    rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), k, k, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
 
@@ -87,10 +86,12 @@ with tf.Session(config=config) as sess:
 
     # Set up ops for decoding the caption
     predicted_index = tf.argmax(decoder.output, axis=1)
+    predicted_index = tf.expand_dims(predicted_index, axis=1)
     sampled_index = decoder.sample()
 
     # Optimization ops
     with tf.name_scope('optimization'):
+        #decoder.output = tf.Print(decoder.output, [decoder.xt])
         cross_entropy = -tf.reduce_sum(labels_ph * tf.log(decoder.output + FLAGS.epsilon))
         optimizer = tf.train.AdamOptimizer(learning_rate_ph)
         model_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='to_train')
@@ -153,7 +154,7 @@ with tf.Session(config=config) as sess:
             feed_dict = {caption_encoding_ph: guidance_caption_encodings,
                          image_conv_encoding_ph: example_conv_encodings,
                          learning_rate_ph: FLAGS.learning_rate,
-                         rnn_inputs_ph: np.array(rnn_inputs),
+                         rnn_inputs_ph: rnn_inputs,
                          labels_ph: np.array(rnn_1hot_labels)[:, :1:]}
 
             # Update weights
@@ -167,11 +168,7 @@ with tf.Session(config=config) as sess:
                     _predicted_index = predicted_index
 
                 word_indices, loss, _ = sess.run([_predicted_index, cross_entropy, update_step], feed_dict=feed_dict)
-
-                # Make the next input for the decoder
-                predicted_1hot = [[helpers.index_to_1hot(word_index)]
-                                  for word_index in word_indices]
-                rnn_inputs = np.concatenate((rnn_inputs, predicted_1hot), axis=1)
+                rnn_inputs = np.concatenate((rnn_inputs, word_indices), axis=1)
                 feed_dict[rnn_inputs_ph] = rnn_inputs
                 feed_dict[labels_ph] = feed_dict[labels_ph][:, :w + 2:]
 
@@ -195,7 +192,8 @@ with tf.Session(config=config) as sess:
 
         # Occasionally save model
         if e % FLAGS.save_every == 0:
-            helpers.save_model(sess, saver, helpers.get_new_model_path())
+            pass
+            #helpers.save_model(sess, saver, helpers.get_new_model_path())
 
     # Alert that training has been completed and print the run time
     elapsed = time.time() - start_time

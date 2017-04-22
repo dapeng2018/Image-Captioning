@@ -43,10 +43,10 @@ class Vocab:
         lines = [line.rstrip('\n') for line in open(filename)]
         return tf.convert_to_tensor(lines), lines
 
-    # Return a numpy array of one-hot encoded vectors representing <bos> (to be used as the first RNN input)
+    # Return a numpy array of indices representing <bos> (to be used as the first RNN input)
     def get_bos_rnn_input(self, batch_size):
-        one_hot = self.get_bos_1hot()
-        batch_one_hot = [[one_hot] for _ in range(batch_size)]
+        index = self.get_index_from_word('<bos>')
+        batch_one_hot = [[index] for _ in range(batch_size)]
         return np.array(batch_one_hot)
 
     # Get the one-hot encoded representation of the <bos> token

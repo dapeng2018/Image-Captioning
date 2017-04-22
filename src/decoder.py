@@ -5,7 +5,6 @@
 
 import logging
 import tensorflow as tf
-from functools import partial
 
 FLAGS = tf.flags.FLAGS
 
@@ -24,12 +23,7 @@ class Decoder:
             embedding_shape = [FLAGS.vocab_size, FLAGS.embedding_size]
             embedding_init = tf.random_uniform(embedding_shape, -1., 1.)
             self.word_embeddings = tf.Variable(embedding_init)
-
-            def embed(embedding, x):
-                return tf.nn.embedding_lookup(embedding, tf.argmax(x, axis=1))
-
-            _embed = partial(embed, self.word_embeddings)
-            xt = tf.map_fn(_embed, inputs)
+            xt = tf.nn.embedding_lookup(self.word_embeddings, tf.cast(inputs, dtype=tf.int32))
 
             # Combine context hidden with other hiddens
             x0 = tf.expand_dims(x0, axis=1)
@@ -64,7 +58,7 @@ class Decoder:
 
         return ' '.join(word_list)
 
-    def sample(self):
+    def sample(self, expand=True):
         """
         Randomly sample from the prediction distribution
         This is used for scheduled sampling
@@ -80,5 +74,8 @@ class Decoder:
         shape = [FLAGS.batch_size, tf.shape(self.output)[-1]]
         random = tf.random_uniform(shape, minval=0., maxval=1.)
         sample = tf.argmax(probabilities - random, axis=1)
+
+        if expand:
+            sample = tf.expand_dims(sample, axis=1)
 
         return sample
