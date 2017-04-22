@@ -18,10 +18,12 @@ from vgg.fcn16_vgg import FCN16VGG as Vgg16
 FLAGS = tf.flags.FLAGS
 
 
+# Configure the python logger
 def config_logging():
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
 
 
+# Configure flags used for both training and inference
 def config_model_flags():
     tf.flags.DEFINE_integer('conv_size', 512, 'Number of maps of the vgg image encoding')
     tf.flags.DEFINE_float('dropout_rate', .5, 'Probability of applying dropout for the final layer of the decoder')
@@ -47,10 +49,12 @@ def config_model_flags():
     tf.flags.DEFINE_string('stv_embeddings_file', stv_lib + 'embeddings.npy', 'Path to word embeddings for STV')
 
 
+# Retirve the absolute dir of the MSCOCO annotations dir
 def get_annotations_path():
     return get_lib_path() + '/annotations/'
 
 
+# Retirve the absolute path of the MSCOCO training caption set
 def get_captions_path(train=True):
     if train:
         return get_annotations_path() + '/captions_train2014.json'
@@ -58,6 +62,7 @@ def get_captions_path(train=True):
         return get_annotations_path() + '/captions_val2014.json'
 
 
+# Measures cosine similarity for two given image encodings from the last FC layer of the VGG16
 def get_cosine_similarity(a, b):
     shape = [-1, FLAGS.kk * 4096]
     a = tf.reshape(a, shape=shape)
@@ -72,10 +77,12 @@ def get_cosine_similarity(a, b):
     return similarity
 
 
+# Retrieve the current absolute path of the script being executed
 def get_current_path():
     return os.path.dirname(os.path.realpath(__file__)) + '/../'
 
 
+# Retrieve a dictionary from a specified pickle file if it exists
 def get_data(name):
     if pickle_exists(name):
         return load_obj(name)
@@ -83,32 +90,39 @@ def get_data(name):
         return {}
 
 
+# Generate a configuration for a TensorFlow session
 def get_session_config():
     gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.95)
     return tf.ConfigProto(log_device_placement=True, gpu_options=gpu_options)
 
 
+# Retrieve the absolute path of the lib dir
 def get_lib_path():
     return get_current_path() + '/lib/'
 
 
+# Retrieve the absolute path of the log dir
 def get_logs_path():
     return get_current_path() + '/log/'
 
 
+# Generate a new model path based on the time
 def get_new_model_path():
     return get_lib_path() + '/models/model_%s' % time.time()
 
 
+# Retrieve the absolute path of the training dir
 def get_training_path():
     return get_lib_path() + '/train2014/'
 
 
+# Retrieve the number of training images available in training dir
 def get_training_size():
     path = get_training_path()
     return len([f for f in os.listdir(path) if os.path.isfile(os.path.join(path, f))])
 
 
+# Retrieve a path for a training image
 def get_training_next_path():
     for root, dirs, files in os.walk(get_training_path()):
         for name in files:
@@ -118,6 +132,7 @@ def get_training_next_path():
                 return get_training_next_path()
 
 
+# Convert some index into a one-hot representation (list)
 def index_to_1hot(index):
     return [1 if i == index else 0 for i in range(FLAGS.vocab_size)]
 

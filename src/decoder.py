@@ -43,10 +43,17 @@ class Decoder:
             # Prediction layer
             prediction = tf.matmul(outputs[:, -1], self.word_embeddings, transpose_b=True)
             prediction = tf.nn.dropout(prediction, FLAGS.dropout_rate)
-            self.output = tf.nn.softmax(prediction)
+            self.output = tf.nn.softmax(prediction + FLAGS.epsilon)
 
     @staticmethod
     def make_readable(word_list):
+        """
+        Given a byte numpy array representing strings of words, decode it into a readable sentence
+
+        :param word_list:
+        :return: a string of the decoded caption
+        """
+
         # Decode words
         word_list = [word.decode('UTF-8') for word in word_list.tolist()]
 
@@ -58,6 +65,13 @@ class Decoder:
         return ' '.join(word_list)
 
     def sample(self):
+        """
+        Randomly sample from the prediction distribution
+        This is used for scheduled sampling
+
+        :return: a one-hot encoded tensor of shape [batch size, vocab size]
+        """
+
         # Make positive and get probabilities
         positive = tf.exp(self.output)
         probabilities = positive / tf.reduce_sum(positive)

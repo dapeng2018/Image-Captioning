@@ -21,16 +21,19 @@ class Vocab:
         FLAGS.vocab_size = int(self.list.get_shape()[0])
 
     @staticmethod
+    # Insert and append the <bos> and <eos> tokens into a sentence (list of words)
     def add_bos_eos(sentence):
         sentence.insert(0, '<bos>')
         sentence.append('<eos>')
         return sentence
 
     @staticmethod
+    # Remove anything that is not a character or space in a sentence (list of words)
     def clean(sentence):
         return [re.sub(r"[^\w\s]]", "", word) for word in sentence]
 
     @staticmethod
+    # Append the <pad> token up to the globally specified max caption size
     def pad(x):
         x.extend(['<pad>' for _ in range(FLAGS.max_caption_size - len(x))])
 
@@ -40,11 +43,13 @@ class Vocab:
         lines = [line.rstrip('\n') for line in open(filename)]
         return tf.convert_to_tensor(lines), lines
 
+    # Return a numpy array of one-hot encoded vectors representing <bos> (to be used as the first RNN input)
     def get_bos_rnn_input(self, batch_size):
         one_hot = self.get_bos_1hot()
         batch_one_hot = [[one_hot] for _ in range(batch_size)]
         return np.array(batch_one_hot)
 
+    # Get the one-hot encoded representation of the <bos> token
     def get_bos_1hot(self):
         index = self.get_index_from_word('<bos>')
         return helpers.index_to_1hot(index)

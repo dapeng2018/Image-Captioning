@@ -41,24 +41,32 @@ class CaptionExtractor:
             helpers.save_obj(self.captions, 'captions')
 
     @staticmethod
+    # Remove anything that is not a character or space in a sentence (list of words)
     def clean_sentence(sentence):
         return re.sub(r'[^\w\s]', '', sentence)
 
     @staticmethod
+    # Append the <pad> token up to the globally specified max caption size
     def extend_to_len(x, n=512):
         x.extend(['' for _ in range(n - len(x))])
 
     @staticmethod
+    # Retrieve the MSCOCO annotations and images data in the form of dictionaries
     def get_annotations(path=helpers.get_captions_path()):
         with open(path) as data_file:
             data = json.load(data_file)
             return data['annotations'], data['images']
 
+    @staticmethod
+    # Make a word lowercased and stem it
+    def stem_word(stemmer, word):
+        return stemmer.lemmatize(word.lower())
+
     def get_guidance_caption(self, nearest_neighbors, inference=False):
         """
         Return the guidance caption for each example in a batch
 
-        :param nearest_neighbors:
+        :param nearest_neighbors: set of nearest neighbors for a batch of images [batch size, FLAGS.n]
         :param inference: whether or not this is for inference (vs training)
         :return: guidance caption for each example of shape [batch size, 1]
         """
@@ -127,11 +135,8 @@ class CaptionExtractor:
             [t.join() for t in threads]
             return list(guidance_caption)
 
+    # Create a dictionary storing training image names with their associated captions
     def make_caption_representations(self):
-        """
-        Creates the caption representation in the form of a list of ngrams and populates the term frequency record
-        """
-
         # Iterate through the annotations data and find all captions belonging to our image
         for image in self.images_data:
             for annotation in self.annotations_data:
@@ -144,18 +149,17 @@ class CaptionExtractor:
 
                     self.captions[filename].append(annotation['caption'])
 
-    def stem_word(self, stemmer, word):
-        return stemmer.lemmatize(word.lower())
-
+    # Tokenize a given sentence
     def tokenize_sentence(self, stemmer, sentence):
         return [self.stem_word(stemmer, word) for word in nltk.word_tokenize(sentence)]
 
-    def tokenize_sentences(self, sentences, extend=False):
+    # Tokenize a set of sentences and pad it if specified
+    def tokenize_sentences(self, sentences, pad=False):
         tokenized_sentences = []
 
         for sentence in sentences:
             ts = self.tokenize_sentence(sentence)
-            if extend:
+            if pad:
                 self.extend_to_len(ts, FLAGS.state_size)
 
             tokenized_sentences.append(ts)
