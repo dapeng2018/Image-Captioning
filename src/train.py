@@ -81,7 +81,7 @@ with tf.Session(config=config) as sess:
     stv.load_model(stv_uni_config, FLAGS.stv_vocab_file, FLAGS.stv_embeddings_file, FLAGS.stv_checkpoint_path)
 
     # Attention model and decoder
-    with tf.variable_scope('to_train'):
+    with tf.variable_scope('trained'):
         tatt = Attention(image_conv_encoding_ph, caption_encoding_ph)
         decoder = Decoder(context_vector_ph, rnn_inputs_ph)
 
@@ -94,7 +94,7 @@ with tf.Session(config=config) as sess:
     with tf.name_scope('optimization'):
         cross_entropy = -tf.reduce_sum(labels_ph * tf.log(decoder.output + FLAGS.epsilon))
         optimizer = tf.train.AdamOptimizer(learning_rate_ph)
-        model_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='to_train')
+        model_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='trained')
         model_grads = optimizer.compute_gradients(cross_entropy, model_vars)
         update_step = optimizer.apply_gradients(model_grads)
 
@@ -121,6 +121,7 @@ with tf.Session(config=config) as sess:
     # Evaluate training examples now since they do not need to recomputed in our loop
     all_examples_eval = all_examples.eval()
     all_filenames_eval = all_filenames.eval()
+    training_fc_encodings = fc_encoding.eval(feed_dict={image_ph: all_examples_eval})
 
     # Optimization loop
     for e in range(FLAGS.epochs):
@@ -132,7 +133,6 @@ with tf.Session(config=config) as sess:
             example_images = batch_examples.eval()
             example_conv_encodings = conv_encoding.eval(feed_dict={image_ph: example_images})
             examples_fc_encoding = fc_encoding.eval(feed_dict={image_ph: example_images})
-            training_fc_encodings = fc_encoding.eval(feed_dict={image_ph: all_examples_eval})
 
             # Get nearest neighboring images
             neighbor_dict = {

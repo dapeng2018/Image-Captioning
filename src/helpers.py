@@ -92,7 +92,7 @@ def get_data(name):
 
 # Generate a configuration for a TensorFlow session
 def get_session_config():
-    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=0.95)
+    gpu_options = tf.GPUOptions(per_process_gpu_memory_fraction=1.)
     return tf.ConfigProto(log_device_placement=True, gpu_options=gpu_options)
 
 

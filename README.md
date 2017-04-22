@@ -54,7 +54,7 @@ python3 train.py
 
 ## Files
 
-* [atention.py](./src/attention.py)
+* [attention.py](./src/attention.py)
 
     Class responsible for text-guided attention.
 

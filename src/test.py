@@ -66,8 +66,10 @@ with tf.Session(config=config) as sess:
     vgg.build(image_ph, image_shape[1:])
     conv_encoding = vgg.pool5
     fc_encoding = vgg.fc7
-    tatt = Attention(image_conv_encoding_ph, caption_encoding_ph)
-    decoder = Decoder(tatt.context_vector, rnn_inputs_ph)
+
+    with tf.variable_scope('trained'):
+        tatt = Attention(image_conv_encoding_ph, caption_encoding_ph)
+        decoder = Decoder(tatt.context_vector, rnn_inputs_ph)
 
     # Retrieve training images for caption extraction
     example_image, example_filename = helpers.next_example(height=FLAGS.train_height, width=FLAGS.train_width)
@@ -88,7 +90,7 @@ with tf.Session(config=config) as sess:
     saver = tf.train.Saver()
     saver.restore(sess, saved_path)
 
-    # Evaluate training images and imag encodings
+    # Evaluate training images and image encodings
     all_examples_eval = all_examples.eval()
     all_filenames_eval = all_filenames.eval()
     input_fc_encoding = fc_encoding.eval(feed_dict={image_ph: input_image})
