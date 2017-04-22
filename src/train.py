@@ -91,7 +91,6 @@ with tf.Session(config=config) as sess:
 
     # Optimization ops
     with tf.name_scope('optimization'):
-        #decoder.output = tf.Print(decoder.output, [decoder.xt])
         cross_entropy = -tf.reduce_sum(labels_ph * tf.log(decoder.output + FLAGS.epsilon))
         optimizer = tf.train.AdamOptimizer(learning_rate_ph)
         model_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='to_train')
@@ -168,13 +167,13 @@ with tf.Session(config=config) as sess:
                     _predicted_index = predicted_index
 
                 word_indices, loss, _ = sess.run([_predicted_index, cross_entropy, update_step], feed_dict=feed_dict)
-                rnn_inputs = np.concatenate((rnn_inputs, word_indices), axis=1)
+                rnn_inputs = np.concatenate((feed_dict[rnn_inputs_ph], word_indices), axis=1)
                 feed_dict[rnn_inputs_ph] = rnn_inputs
                 feed_dict[labels_ph] = feed_dict[labels_ph][:, :w + 2:]
 
             # Log loss
             if i % FLAGS.print_every == 0:
-                logging.info("Epoch %03d | Iteration %06d | Loss %.03f" % (e, i, loss))
+                logging.info("Epoch %03d | Iteration %06d | Loss %.10f" % (e, i, loss))
 
         # Decay the scheduled sampling rate
         if FLAGS.sched_dec_type == 'lin':
@@ -193,7 +192,7 @@ with tf.Session(config=config) as sess:
         # Occasionally save model
         if e % FLAGS.save_every == 0:
             pass
-            #helpers.save_model(sess, saver, helpers.get_new_model_path())
+            helpers.save_model(sess, saver, helpers.get_new_model_path())
 
     # Alert that training has been completed and print the run time
     elapsed = time.time() - start_time

@@ -153,7 +153,7 @@ with tf.Session(config=config) as sess:
         caption.append(word.lower())
 
         # Make the next input for the decoder
-        rnn_inputs = np.concatenate((rnn_inputs, word_index), axis=1)
+        rnn_inputs = np.concatenate((feed_dict[rnn_inputs_ph], word_index), axis=1)
         feed_dict[rnn_inputs_ph] = np.array(rnn_inputs)
 
     # Convert caption array into string and print it

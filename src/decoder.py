@@ -5,6 +5,7 @@
 
 import logging
 import tensorflow as tf
+from functools import partial
 
 FLAGS = tf.flags.FLAGS
 
@@ -12,6 +13,7 @@ FLAGS = tf.flags.FLAGS
 class Decoder:
     def __init__(self, context_vector, inputs):
         logging.info("New 'Decoder' instance has been initialized.")
+        self.inputs = inputs
 
         with tf.name_scope('decoder'):
             # x0 (embeds attention context vector to word embedding space)
@@ -23,7 +25,13 @@ class Decoder:
             embedding_shape = [FLAGS.vocab_size, FLAGS.embedding_size]
             embedding_init = tf.random_uniform(embedding_shape, -1., 1.)
             self.word_embeddings = tf.Variable(embedding_init)
-            xt = tf.nn.embedding_lookup(self.word_embeddings, tf.cast(inputs, dtype=tf.int32))
+
+            def embed(embedding, x):
+                x = tf.reshape(x, [-1])
+                return tf.nn.embedding_lookup(embedding, tf.cast(x, dtype=tf.int32))
+
+            embed_partial = partial(embed, self.word_embeddings)
+            xt = tf.map_fn(embed_partial, inputs)
 
             # Combine context hidden with other hiddens
             x0 = tf.expand_dims(x0, axis=1)
@@ -35,7 +43,8 @@ class Decoder:
             outputs, states = tf.nn.dynamic_rnn(lstm, xt, initial_state=init_state, dtype=tf.float32)
 
             # Prediction layer
-            prediction = tf.matmul(outputs[:, -1], self.word_embeddings, transpose_b=True)
+            last_output = outputs[:, -1, :]
+            prediction = tf.matmul(last_output, self.word_embeddings, transpose_b=True)
             prediction = tf.nn.dropout(prediction, FLAGS.dropout_rate)
             self.output = tf.nn.softmax(prediction + FLAGS.epsilon)
 

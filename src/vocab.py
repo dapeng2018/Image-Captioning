@@ -46,8 +46,7 @@ class Vocab:
     # Return a numpy array of indices representing <bos> (to be used as the first RNN input)
     def get_bos_rnn_input(self, batch_size):
         index = self.get_index_from_word('<bos>')
-        batch_one_hot = [[index] for _ in range(batch_size)]
-        return np.array(batch_one_hot)
+        return np.full((batch_size, 1), index)
 
     # Get the one-hot encoded representation of the <bos> token
     def get_bos_1hot(self):

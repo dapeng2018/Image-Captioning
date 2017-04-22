@@ -4,6 +4,7 @@
 """
 
 import logging
+import math
 import tensorflow as tf
 
 FLAGS = tf.flags.FLAGS
