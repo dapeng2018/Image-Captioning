@@ -67,12 +67,11 @@ with tf.Session(config=config) as sess:
     image_shape = [1, FLAGS.train_height, FLAGS.train_width, 3]
     neighbor = Neighbor(image_fc_encoding_ph, training_fc_encodings_ph, training_filenames_ph)
 
-    # Initialize encoders
-    with tf.name_scope('encoders'):
-        vgg = Vgg16()
-        vgg.build(image_ph, image_shape[1:])
-        conv_encoding = vgg.pool5
-        fc_encoding = vgg.fc7
+    # Initialize image encoder
+    vgg = Vgg16()
+    vgg.build(image_ph, image_shape[1:])
+    conv_encoding = vgg.pool5
+    fc_encoding = vgg.fc7
 
     # Initialize guidance caption extractor and skip-thought-vector model
     extractor = CaptionExtractor()

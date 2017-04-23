@@ -75,7 +75,7 @@ class CaptionExtractor:
                 caption = extractor.clean_sentence(caption)
                 return caption
 
-            # Iterate through each example's candidate captions and select the appropriate guidance caption
+            # Get the guidance caption for a particular example given its nearest neighboring image filenames
             def get_example_guidance(neighbors, index):
                 stemmer = nltk.stem.WordNetLemmatizer()
 
@@ -121,6 +121,7 @@ class CaptionExtractor:
 
                 guidance_caption[index] = guidance
 
+            # Iterate through each example's candidate captions and select the appropriate guidance caption
             threads = []
             for i, n in enumerate(nearest_neighbors):
                 t = Process(target=get_example_guidance, args=(n, i, ))
@@ -147,13 +148,3 @@ class CaptionExtractor:
     # Tokenize a given sentence
     def tokenize_sentence(self, stemmer, sentence):
         return [self.stem_word(stemmer, word) for word in nltk.word_tokenize(sentence)]
-
-    # Tokenize a set of sentences and pad it if specified
-    def tokenize_sentences(self, sentences):
-        tokenized_sentences = []
-
-        for sentence in sentences:
-            ts = self.tokenize_sentence(sentence)
-            tokenized_sentences.append(ts)
-
-        return tokenized_sentences

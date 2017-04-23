@@ -49,7 +49,7 @@ python3 test.py 'path/to/input/image' 'path/to/trained/model.ckpt'
 ```
 
 To train a new generative model to caption images invoke *[train.py](./src/train.py)* without supplying additional flags. 
-Checkpoints will be generated on occasion during the training session under [lib/models](.lib/models) prefixed with a timestamp for a name.
+Checkpoints will be generated on occasion during the training session under [lib/models](./lib/models) prefixed with a timestamp for a name.
 On completion, a final model will be saved under the same directory but with the additional prefix "trained" before the timestamp.
 
 ```

@@ -56,16 +56,16 @@ with tf.Session(config=config) as sess:
     image_shape = [1, FLAGS.train_height, FLAGS.train_width, 3]
     neighbor = Neighbor(image_fc_encoding_ph, training_fc_encodings_ph, training_filenames_ph)
 
-    # Initialize skip-thought-vector model
-    stv = EncoderManager()
-    stv_uni_config = stv_configuration.model_config()
-    stv.load_model(stv_uni_config, FLAGS.stv_vocab_file, FLAGS.stv_embeddings_file, FLAGS.stv_checkpoint_path)
-
-    # Initialize models
+    # Initialize image encoder
     vgg = Vgg16()
     vgg.build(image_ph, image_shape[1:])
     conv_encoding = vgg.pool5
     fc_encoding = vgg.fc7
+
+    # Initialize caption encoder
+    stv = EncoderManager()
+    stv_uni_config = stv_configuration.model_config()
+    stv.load_model(stv_uni_config, FLAGS.stv_vocab_file, FLAGS.stv_embeddings_file, FLAGS.stv_checkpoint_path)
 
     with tf.variable_scope('trained'):
         tatt = Attention(image_conv_encoding_ph, caption_encoding_ph)
