@@ -3,7 +3,11 @@
 <img src="lib/examples/cover.jpg" height="480px" width="640px" align="right">
 
 This is a TensorFlow implementation of *[Text-guided Attention Model for Image Captioning](https://arxiv.org/pdf/1612.03557.pdf)* using [scheduled sampling](https://arxiv.org/pdf/1612.03557.pdf) as a learning approach.
+An attention machanism is used by observing associated captions and steering visual attention. 
+The model implicitly learns not only what objects look like based on words, but the context of an image, allowing it to naturally describe the scene.
 
+It makes use of a fine tuned [VGG convolutional neural network](https://arxiv.org/pdf/1409.1556.pdf) and a [Skip-Thought Vector](https://arxiv.org/pdf/1506.06726.pdf) model to encode images and captions respectively.
+Attention is conducted on these encodings in order to produce a context vector, which is then deciphered by an LSTM into a readable caption.
 
 #### Implementation Architecture
 

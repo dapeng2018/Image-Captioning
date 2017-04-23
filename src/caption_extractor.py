@@ -1,6 +1,6 @@
 """
     Author: Mohamed K. Eid (mohamedkeid@gmail.com)
-    Description:
+    Description: Class responsible extracting a guidance caption and other operations related to ETL of sentences.
 """
 
 from cider.cider import Cider
@@ -87,7 +87,7 @@ class CaptionExtractor:
                 candidates = list(itertools.chain(*captions.values()))
                 candidates = [stem(self, stemmer, candidate) for candidate in candidates]
 
-                # Compute CIDEr scores through in parallel
+                # Compute CIDEr scores in parallel
                 with Manager() as cider_manager:
                     total_scores = cider_manager.dict()
                     cider_threads = []

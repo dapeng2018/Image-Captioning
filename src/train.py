@@ -57,7 +57,7 @@ with tf.Session(config=config) as sess:
     image_conv_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, FLAGS.conv_size])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     image_name_ph = tf.placeholder(dtype=tf.string)
-    labels_ph = tf.placeholder(tf.float32, shape=(None, None, FLAGS.vocab_size))
+    labels_ph = tf.placeholder(tf.float32, shape=(None, FLAGS.vocab_size))
     learning_rate_ph = tf.placeholder(dtype=tf.float32)
     rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), k, k, 4096])
@@ -150,6 +150,7 @@ with tf.Session(config=config) as sess:
             rnn_word_labels = [vocab.add_bos_eos(extractor.tokenize_sentence(extractor.stemmer, gc))
                                for gc in guidance_captions]
             rnn_1hot_labels = vocab.word_labels_to_1hot(rnn_word_labels)
+            bos_labels = np.array(rnn_1hot_labels)[:, 0].reshape((-1, FLAGS.vocab_size))
 
             # Compute the context vector so it is not recomputed for each time step of the LSTM
             context_dict = {caption_encoding_ph: guidance_caption_encodings,
@@ -160,10 +161,10 @@ with tf.Session(config=config) as sess:
             feed_dict = {context_vector_ph: context_vector,
                          learning_rate_ph: FLAGS.learning_rate,
                          rnn_inputs_ph: rnn_inputs,
-                         labels_ph: np.array(rnn_1hot_labels)[:, :1:]}
+                         labels_ph: bos_labels}
 
             # Update weights
-            for w in range(FLAGS.max_caption_size):
+            for w in range(FLAGS.max_caption_size - 1):
                 # Scheduled sampling
                 if e >= FLAGS.sched_start and random.random() >= FLAGS.sched_rate:
                     # Use sample
@@ -172,10 +173,13 @@ with tf.Session(config=config) as sess:
                     # Use ground-truth
                     _predicted_index = predicted_index
 
+                # Update
                 word_indices, loss, _ = sess.run([_predicted_index, cross_entropy, update_step], feed_dict=feed_dict)
+
+                # Prepare next time step's inputs and labels
                 rnn_inputs = np.concatenate((feed_dict[rnn_inputs_ph], word_indices), axis=1)
                 feed_dict[rnn_inputs_ph] = rnn_inputs
-                feed_dict[labels_ph] = feed_dict[labels_ph][:, :w + 2:]
+                feed_dict[labels_ph] = np.array(rnn_1hot_labels)[:, w + 1].reshape((-1, FLAGS.vocab_size))
 
             # Log loss
             if i % FLAGS.print_every == 0:

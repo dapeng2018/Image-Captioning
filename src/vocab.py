@@ -1,12 +1,11 @@
 """
     Author: Mohamed K. Eid (mohamedkeid@gmail.com)
-    Description:
+    Description: Class responsible for vocabulary retrieval, encoding, decoding, and other operations.
 """
 
 import helpers
 import logging
 import numpy as np
-import re
 import tensorflow as tf
 from functools import partial
 
@@ -26,11 +25,6 @@ class Vocab:
         sentence.insert(0, '<bos>')
         sentence.append('<eos>')
         return sentence
-
-    @staticmethod
-    # Remove anything that is not a character or space in a sentence (list of words)
-    def clean(sentence):
-        return [re.sub(r"[^\w\s]]", "", word) for word in sentence]
 
     @staticmethod
     # Append the <pad> token up to the globally specified max caption size
