@@ -21,7 +21,7 @@ The input caption fed into this RNN is chosen through an intricate caption extra
 From the input image, a set of candidate captions are initially retrieved based on the top *n* visually similar images.
 The top *k* candidates are filtered from the list based on computed [CIDEr](https://arxiv.org/pdf/1411.5726.pdf) scores.
 While the top caption is simply chosen during inference, a random caption is chosen from these top captions during training to prevent overfitting.
-As mentioned prior, this selected captionc alled the guidance caption is fed into the STV and encoded.
+As mentioned prior, this selected caption referenced as the *guidance caption* is fed into the STV and encoded.
 
 A text-guided attention model then takes as input the image and caption encodings. 
 It computes a context vector through an attention mechanism by "attending" different parts (filter maps) of the image encoding at each feature representation of the caption encoding.

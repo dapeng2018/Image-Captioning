@@ -57,9 +57,10 @@ with tf.Session(config=config) as sess:
     image_conv_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, FLAGS.conv_size])
     image_fc_encoding_ph = tf.placeholder(dtype=tf.float32, shape=[None, k, k, 4096])
     image_name_ph = tf.placeholder(dtype=tf.string)
-    labels_ph = tf.placeholder(tf.float32, shape=(None, FLAGS.vocab_size))
+    labels_ph = tf.placeholder(tf.float32, shape=(None, None, FLAGS.vocab_size))
     learning_rate_ph = tf.placeholder(dtype=tf.float32)
     rnn_inputs_ph = tf.placeholder(dtype=tf.float32, shape=[None, None])
+    sequence_length_ph = tf.placeholder(dtype=tf.int32, shape=[FLAGS.batch_size])
     training_fc_encodings_ph = tf.placeholder(dtype=tf.float32, shape=[helpers.get_training_size(), k, k, 4096])
     training_filenames_ph = tf.placeholder(dtype=tf.string, shape=[helpers.get_training_size()])
 
@@ -85,16 +86,16 @@ with tf.Session(config=config) as sess:
         decoder = Decoder(context_vector_ph, rnn_inputs_ph)
 
     # Set up ops for decoding the caption
-    predicted_index = tf.argmax(decoder.output, axis=1)
-    predicted_index = tf.expand_dims(predicted_index, axis=1)
+    predicted_index = tf.argmax(decoder.last_output, axis=1)
     sampled_index = decoder.sample()
 
     # Optimization ops
     with tf.name_scope('optimization'):
-        cross_entropy = -tf.reduce_sum(labels_ph * tf.log(decoder.output + FLAGS.epsilon))
+        cross_entropy = -tf.reduce_sum(labels_ph * tf.log(decoder.outputs + FLAGS.epsilon), axis=2)
+        loss = tf.reduce_mean(cross_entropy)
         optimizer = tf.train.AdamOptimizer(learning_rate_ph)
         model_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='trained')
-        model_grads = optimizer.compute_gradients(cross_entropy, model_vars)
+        model_grads = optimizer.compute_gradients(loss, model_vars)
         update_step = optimizer.apply_gradients(model_grads)
 
     # Training data ops
@@ -149,7 +150,6 @@ with tf.Session(config=config) as sess:
             rnn_word_labels = [vocab.add_bos_eos(extractor.tokenize_sentence(extractor.stemmer, gc))
                                for gc in guidance_captions]
             rnn_1hot_labels = vocab.word_labels_to_1hot(rnn_word_labels)
-            bos_labels = np.array(rnn_1hot_labels)[:, 0].reshape((-1, FLAGS.vocab_size))
 
             # Compute the context vector so it is not recomputed for each time step of the LSTM
             context_dict = {caption_encoding_ph: guidance_caption_encodings,
@@ -160,7 +160,7 @@ with tf.Session(config=config) as sess:
             feed_dict = {context_vector_ph: context_vector,
                          learning_rate_ph: FLAGS.learning_rate,
                          rnn_inputs_ph: rnn_inputs,
-                         labels_ph: bos_labels}
+                         labels_ph: np.array(rnn_1hot_labels)}
 
             # Update weights
             for w in range(FLAGS.max_caption_size - 1):
@@ -172,17 +172,19 @@ with tf.Session(config=config) as sess:
                     # Use ground-truth
                     _predicted_index = predicted_index
 
-                # Update
-                word_indices, loss, _ = sess.run([_predicted_index, cross_entropy, update_step], feed_dict=feed_dict)
-
-                # Prepare next time step's inputs and labels
-                rnn_inputs = np.concatenate((feed_dict[rnn_inputs_ph], word_indices), axis=1)
-                feed_dict[rnn_inputs_ph] = rnn_inputs
-                feed_dict[labels_ph] = np.array(rnn_1hot_labels)[:, w + 1].reshape((-1, FLAGS.vocab_size))
+                if w < FLAGS.max_caption_size - 2:
+                    # Prepare next time step's inputs and labels
+                    word_indices = sess.run([_predicted_index], feed_dict=feed_dict)
+                    word_indices = np.array(word_indices).reshape([FLAGS.batch_size, 1])
+                    rnn_inputs = np.concatenate((feed_dict[rnn_inputs_ph], word_indices), axis=1)
+                    feed_dict[rnn_inputs_ph] = rnn_inputs
+                else:
+                    # Update on last word
+                    l, _ = sess.run([loss, update_step], feed_dict=feed_dict)
 
             # Log loss
             if i % FLAGS.print_every == 0:
-                logging.info("Epoch %03d | Iteration %06d | Loss %.10f" % (e, i, loss))
+                logging.info("Epoch %03d | Iteration %06d | Loss %.10f" % (e, i, l))
 
         # Decay the scheduled sampling rate
         if FLAGS.sched_dec_type == 'lin':

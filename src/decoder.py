@@ -11,7 +11,7 @@ FLAGS = tf.flags.FLAGS
 
 
 class Decoder:
-    def __init__(self, context_vector, inputs):
+    def __init__(self, context_vector, inputs, sequence_length=None):
         logging.info("New 'Decoder' instance has been initialized.")
         self.inputs = inputs
 
@@ -40,13 +40,18 @@ class Decoder:
             # LSTM layer
             lstm = tf.contrib.rnn.BasicLSTMCell(FLAGS.embedding_size, state_is_tuple=True)
             init_state = lstm.zero_state(FLAGS.batch_size, dtype=tf.float32)
-            outputs, states = tf.nn.dynamic_rnn(lstm, xt, initial_state=init_state, dtype=tf.float32)
+            outputs, states = tf.nn.dynamic_rnn(lstm, xt, sequence_length, init_state, dtype=tf.float32)
 
             # Prediction layer
-            last_output = outputs[:, -1, :]
-            prediction = tf.matmul(last_output, self.word_embeddings, transpose_b=True)
-            prediction = tf.nn.dropout(prediction, FLAGS.dropout_rate)
-            self.output = tf.nn.softmax(prediction + FLAGS.epsilon)
+            def predict(embedding, x):
+                return tf.matmul(x, embedding, transpose_b=True)
+
+            predict_partial = partial(predict, self.word_embeddings)
+            predictions = tf.map_fn(predict_partial, outputs)
+            predictions = tf.nn.dropout(predictions, FLAGS.dropout_rate)
+            predictions = tf.nn.softmax(predictions + FLAGS.epsilon)
+            self.last_output = predictions[:, -1, :]
+            self.outputs = predictions
 
     @staticmethod
     def make_readable(word_list):
@@ -76,11 +81,11 @@ class Decoder:
         """
 
         # Make positive and get probabilities
-        positive = tf.exp(self.output)
+        positive = tf.exp(self.last_output)
         probabilities = positive / tf.reduce_sum(positive)
 
         # Use a randomly generated uniform distirbution in attempt to draw  random sample
-        shape = [FLAGS.batch_size, tf.shape(self.output)[-1]]
+        shape = [FLAGS.batch_size, tf.shape(self.last_output)[-1]]
         random = tf.random_uniform(shape, minval=0., maxval=1.)
         sample = tf.argmax(probabilities - random, axis=1)
 

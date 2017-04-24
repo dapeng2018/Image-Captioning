@@ -17,7 +17,7 @@ class Vocab:
         logging.info("New 'Vocab' instance has been initialized.")
 
         self.list, self._list = self.get_list()
-        FLAGS.vocab_size = int(self.list.get_shape()[0])
+        FLAGS.vocab_size = 3#int(self.list.get_shape()[0])
 
     @staticmethod
     # Insert and append the <bos> and <eos> tokens into a sentence (list of words)
