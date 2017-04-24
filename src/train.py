@@ -87,7 +87,7 @@ with tf.Session(config=config) as sess:
 
     # Set up ops for decoding the caption
     predicted_index = tf.argmax(decoder.last_output, axis=1)
-    sampled_index = decoder.sample()
+    sampled_index = decoder.sample(expand=False)
 
     # Optimization ops
     with tf.name_scope('optimization'):
