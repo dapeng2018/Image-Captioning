@@ -117,7 +117,7 @@ with tf.Session(config=config) as sess:
     context_vector = tatt.context_vector.eval(feed_dict=context_dict)
 
     # Set up ops and vars for decoding the caption
-    __predicted_index = tf.argmax(decoder.output, axis=1)
+    __predicted_index = tf.argmax(decoder.last_output, axis=1)
     predicted_word = tf.gather(vocab.list, __predicted_index)
     predicted_index = tf.expand_dims(__predicted_index, axis=1)
     __sampled_index = decoder.sample(expand=False)

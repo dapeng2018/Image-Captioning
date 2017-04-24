@@ -83,7 +83,7 @@ with tf.Session(config=config) as sess:
     # Attention model and decoder
     with tf.variable_scope('trained'):
         tatt = Attention(image_conv_encoding_ph, caption_encoding_ph)
-        decoder = Decoder(context_vector_ph, rnn_inputs_ph)
+        decoder = Decoder(context_vector_ph, rnn_inputs_ph, sequence_length_ph)
 
     # Set up ops for decoding the caption
     predicted_index = tf.argmax(decoder.last_output, axis=1)
@@ -149,6 +149,7 @@ with tf.Session(config=config) as sess:
             rnn_inputs = vocab.get_bos_rnn_input(FLAGS.batch_size)
             rnn_word_labels = [vocab.add_bos_eos(extractor.tokenize_sentence(extractor.stemmer, gc))
                                for gc in guidance_captions]
+            sequence_lengths = vocab.get_sequence_lengths(rnn_word_labels)
             rnn_1hot_labels = vocab.word_labels_to_1hot(rnn_word_labels)
 
             # Compute the context vector so it is not recomputed for each time step of the LSTM
@@ -160,6 +161,7 @@ with tf.Session(config=config) as sess:
             feed_dict = {context_vector_ph: context_vector,
                          learning_rate_ph: FLAGS.learning_rate,
                          rnn_inputs_ph: rnn_inputs,
+                         sequence_length_ph: sequence_lengths,
                          labels_ph: np.array(rnn_1hot_labels)}
 
             # Update weights

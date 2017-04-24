@@ -17,7 +17,7 @@ class Vocab:
         logging.info("New 'Vocab' instance has been initialized.")
 
         self.list, self._list = self.get_list()
-        FLAGS.vocab_size = 3#int(self.list.get_shape()[0])
+        FLAGS.vocab_size = int(self.list.get_shape()[0])
 
     @staticmethod
     # Insert and append the <bos> and <eos> tokens into a sentence (list of words)
@@ -32,10 +32,16 @@ class Vocab:
         x.extend(['<pad>' for _ in range(FLAGS.max_caption_size - len(x))])
 
     @staticmethod
+    # Return the corpus in tensor form
     def get_list():
         filename = helpers.get_lib_path() + '/stv/vocab.txt'
         lines = [line.rstrip('\n') for line in open(filename)]
         return tf.convert_to_tensor(lines), lines
+
+    @staticmethod
+    # Return a list of sequence lengths given a set of captions
+    def get_sequence_lengths(captions):
+        return [caption.index('<eos>') + 1 for caption in captions]
 
     # Return a numpy array of indices representing <bos> (to be used as the first RNN input)
     def get_bos_rnn_input(self, batch_size):
