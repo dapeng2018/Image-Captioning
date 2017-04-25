@@ -1,7 +1,5 @@
 # *Image-Captioning* Using Text-Guided Attention
 
-<img src="lib/examples/cover.jpg" height="480px" width="640px" align="right">
-
 This is a TensorFlow implementation of *[Text-guided Attention Model for Image Captioning](https://arxiv.org/pdf/1612.03557.pdf)* using [scheduled sampling](https://arxiv.org/pdf/1612.03557.pdf) as a learning approach.
 An attention machanism is used by observing associated captions and steering visual attention. 
 The model implicitly learns not only what objects look like based on words, but the context of an image, allowing it to naturally describe the scene.
