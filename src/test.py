@@ -23,6 +23,7 @@ from vocab import Vocab
 
 FLAGS = tf.flags.FLAGS
 tf.flags.DEFINE_integer('batch_size', 1, '')
+tf.flags.DEFINE_float('dropout_rate', 1., 'Keep probability of applying dropout for the final layer of the decoder')
 tf.flags.DEFINE_string('input', None, '')
 tf.flags.DEFINE_string('model_path', None, '')
 helpers.config_model_flags()

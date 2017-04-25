@@ -26,7 +26,6 @@ def config_logging():
 # Configure flags used for both training and inference
 def config_model_flags():
     tf.flags.DEFINE_integer('conv_size', 512, 'Number of maps of the vgg image encoding')
-    tf.flags.DEFINE_float('dropout_rate', .5, 'Probability of applying dropout for the final layer of the decoder')
     tf.flags.DEFINE_integer('embedding_size', 128, 'Max length of the embedding space')
     tf.flags.DEFINE_float('epsilon', 1e-8, 'Tiny value to for log parameters')
     tf.flags.DEFINE_integer('k', 10, 'Number of consensus captions to retrieve')

@@ -26,6 +26,7 @@ helpers.config_logging()
 
 # Optimization flags
 tf.flags.DEFINE_integer('batch_size', 16, 'Mini-Batch size of images')
+tf.flags.DEFINE_float('dropout_rate', .5, 'Keep probability of applying dropout for the final layer of the decoder')
 tf.flags.DEFINE_integer('epochs', 100, 'Number of training iterations')
 tf.flags.DEFINE_float('learning_rate', 4e-4, 'Optimizer learning rate')
 tf.flags.DEFINE_float('learning_rate_dec_factor', .8, 'Factor in which the learning rate decreases')

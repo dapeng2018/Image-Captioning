@@ -17,8 +17,8 @@ For the image encoding, the final fully connected layer of a pretrained VGG netw
 This model has been specifically fine-tuned to predict image attributes.
 
 For the caption encoding, the last hidden state (GRU) of a pretrained STV model is used.
-The input caption fed into this RNN is chosen through an intricate caption extraction process.
-From the input image, a set of candidate captions are initially retrieved based on the top *n* visually similar images.
+The input caption fed into the attention model is chosen through an intricate caption extraction process.
+From the input image, a set of candidate captions are initially retrieved based on the top [*n* visually similar images](https://arxiv.org/pdf/1505.04467.pdf) using cosine similarity as the discrepancy measure.
 The top *k* candidates are filtered from the list based on computed [CIDEr](https://arxiv.org/pdf/1411.5726.pdf) scores.
 While the top caption is simply chosen during inference, a random caption is chosen from these top captions during training to prevent overfitting.
 As mentioned prior, this selected caption referenced as the *guidance caption* is fed into the STV and encoded.
