@@ -93,7 +93,8 @@ with tf.Session(config=config) as sess:
     # Optimization ops
     with tf.name_scope('optimization'):
         cross_entropy = -tf.reduce_sum(labels_ph * tf.log(decoder.outputs + FLAGS.epsilon), axis=2)
-        loss = tf.reduce_mean(cross_entropy)
+        reg_term = tf.reduce_mean(tatt.a)
+        loss = tf.reduce_mean(cross_entropy) + reg_term
         optimizer = tf.train.AdamOptimizer(learning_rate_ph)
         model_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, scope='trained')
         model_grads = optimizer.compute_gradients(loss, model_vars)

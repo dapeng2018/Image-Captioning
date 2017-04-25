@@ -35,8 +35,8 @@ class Attention:
             e = tf.matmul(t_attention, w_attention)
 
             # Context ops
-            a = tf.nn.softmax(e)
-            z = a * image_encoding
+            self.a = tf.nn.softmax(e)
+            z = self.a * image_encoding
             z = tf.reshape(z, shape=[-1, FLAGS.conv_size, FLAGS.kk])
             z = tf.reduce_sum(z, axis=2)
             self.context_vector = z
